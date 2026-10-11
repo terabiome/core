@@ -54,13 +54,18 @@ func (i *cliInput) Parse() error {
 	shellCmd := flag.NewFlagSet(string(shellSubcommand), flag.ExitOnError)
 	shellCmd.StringVar(&i.shell.YAMLConfigPath, "yaml-config-path", "", "Path to YAML config file")
 
-	flag.Parse()
+	parseAndValidateFn := func(fs *flag.FlagSet, sPtr any) error {
+		return errors.Join(
+			fs.Parse(os.Args[2:]),
+			mainValidator.Struct(sPtr),
+		)
+	}
 
 	// atp, it is guaranteed to have > 1 argument
 	switch subcommand(os.Args[1]) {
 	case shellSubcommand:
 		i.subcommand = shellSubcommand
-		if err := mainValidator.Struct(i.shell); err != nil {
+		if err := parseAndValidateFn(shellCmd, &i.shell); err != nil {
 			return err
 		}
 	default:
