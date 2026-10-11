@@ -9,11 +9,12 @@ import (
 type OperationName string
 
 const (
-	OperationNameDemo                   OperationName = "demo"
-	OperationNameSystemctl              OperationName = "systemctl"
-	OperationNameFirewallCmd            OperationName = "firewall-cmd"
-	OperationNameSysctl                 OperationName = "sysctl"
-	OperationNameConfigureKernelModules OperationName = "configure-kernel-modules"
+	OperationNameDemo                      OperationName = "demo"
+	OperationNameSystemctl                 OperationName = "systemctl"
+	OperationNameFirewallCmd               OperationName = "firewall-cmd"
+	OperationNameSysctl                    OperationName = "sysctl"
+	OperationNameConfigureKernelModules    OperationName = "configure-kernel-modules"
+	OperationNameConfigureKernelParameters OperationName = "configure-kernel-parameters"
 )
 
 type OperationEnvironment struct {
