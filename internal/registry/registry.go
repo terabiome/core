@@ -10,6 +10,9 @@ var registry = map[string]func() operations.Operation{
 	string(operations.OperationNameDemo): func() operations.Operation {
 		return operations.NewDemoOperation()
 	},
+	string(operations.OperationNameSystemctl): func() operations.Operation {
+		return operations.NewSystemctlOperation()
+	},
 }
 
 func Get(name string) (operations.Operation, error) {

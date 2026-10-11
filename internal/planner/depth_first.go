@@ -13,10 +13,10 @@ func (s depthFirstStrategy) generateBatches(uow yamlcontracts.UnitOfWork) []yaml
 		for subIdx := range primitiveBatch {
 			primitiveBatch[subIdx].BatchID = subIdx
 		}
-		batches[idx] = yamlcontracts.UnitOfWorkSequenceBatch{
+		batches = append(batches, yamlcontracts.UnitOfWorkSequenceBatch{
 			ID:        idx,
 			Sequences: primitiveBatch,
-		}
+		})
 	}
 
 	return batches
