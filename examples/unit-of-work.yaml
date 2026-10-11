@@ -1,4 +1,5 @@
 name: bootstrap-control-plane
+strategy: depth-first
 # planner reads this and looks up the matching topic
 # nuance: for each target, create an instance of UOW, not using the same for all (heartful duplication)
 # edge: target not found -> immediate failure, do not emit to topic at all cost

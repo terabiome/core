@@ -12,7 +12,7 @@ import (
 type UnitOfWorkStrategy string
 
 const (
-	UnitOfWorkStrategyDepthFirst UnitOfWorkStrategy = "depth_first"
+	UnitOfWorkStrategyDepthFirst UnitOfWorkStrategy = "depth-first"
 	UnitOfWorkStrategySerialized UnitOfWorkStrategy = "serialized"
 )
 
