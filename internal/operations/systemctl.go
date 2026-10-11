@@ -15,12 +15,13 @@ type systemctlParameters struct {
 }
 
 type SystemctlOperation struct {
-	parameters map[string]any
+	rawParameters map[string]any
+	parameters    systemctlParameters
 }
 
 // Name implements [Operation].
 func (s SystemctlOperation) Name() string {
-	return "systemctl"
+	return string(OperationNameSystemctl)
 }
 
 // PreCheck implements [Operation].
@@ -30,21 +31,16 @@ func (s SystemctlOperation) PreCheck(env *OperationEnvironment) error {
 
 // Run implements [Operation].
 func (s SystemctlOperation) Run(ctx context.Context, env *OperationEnvironment) error {
-	var parameters systemctlParameters
-	if err := mapstructure.Decode(s.parameters, &parameters); err != nil {
-		return fmt.Errorf("failed to parse parameters for 'systemctl': %w", err)
-	}
-
 	cmdInput := shellexecutors.CommandInput{
 		Mode:   shellexecutors.ModeSync,
 		Stdout: env.Journaler,
 		Stderr: env.Journaler,
 		Command: shellexecutors.Command{
 			Executable: "systemctl",
-			Arguments:  parameters.Arguments,
+			Arguments:  s.parameters.Arguments,
 		},
 	}
-	if parameters.LogCommandInStdStreams {
+	if s.parameters.LogCommandInStdStreams {
 		cmdInput.Stdout = os.Stdout
 		cmdInput.Stderr = os.Stderr
 	}
@@ -60,7 +56,10 @@ func (s SystemctlOperation) Run(ctx context.Context, env *OperationEnvironment) 
 
 // SetParameters implements [Operation].
 func (s *SystemctlOperation) SetParameters(parameters map[string]any) error {
-	s.parameters = parameters
+	s.rawParameters = parameters
+	if err := mapstructure.Decode(s.rawParameters, &s.parameters); err != nil {
+		return fmt.Errorf("failed to parse parameters for 'systemctl': %w", err)
+	}
 	return nil
 }
 

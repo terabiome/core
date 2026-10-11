@@ -9,8 +9,9 @@ import (
 type OperationName string
 
 const (
-	OperationNameDemo      OperationName = "demo"
-	OperationNameSystemctl OperationName = "systemctl"
+	OperationNameDemo        OperationName = "demo"
+	OperationNameSystemctl   OperationName = "systemctl"
+	OperationNameFirewallCmd OperationName = "firewall-cmd"
 )
 
 type OperationEnvironment struct {
