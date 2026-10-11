@@ -1,16 +1,16 @@
-package services
+package planner
 
 import yamlcontracts "github.com/terabiome/terabiome/internal/contracts/yaml"
 
-type DepthFirstStrategy struct{}
+type depthFirstStrategy struct{}
 
-func (s *DepthFirstStrategy) BuildBatches(uow yamlcontracts.UnitOfWork) [][]yamlcontracts.UnitOfWorkSequence {
+func (s depthFirstStrategy) generateBatches(uow yamlcontracts.UnitOfWork) [][]yamlcontracts.UnitOfWorkSequence {
 	graph := uow.GetSequenceDependencyGraph()
-	return groupByDepthUsingGraph(uow.Sequences, graph.FirstDegreeGraph)
+	return s.groupByDepthUsingGraph(uow.Sequences, graph.FirstDegreeGraph)
 }
 
 // groupByDepthUsingGraph uses the pre-validated adjacency list to find max depth.
-func groupByDepthUsingGraph(sequences []yamlcontracts.UnitOfWorkSequence, graph map[string]map[string]struct{}) [][]yamlcontracts.UnitOfWorkSequence {
+func (s depthFirstStrategy) groupByDepthUsingGraph(sequences []yamlcontracts.UnitOfWorkSequence, graph map[string]map[string]struct{}) [][]yamlcontracts.UnitOfWorkSequence {
 	if len(sequences) == 0 {
 		return nil
 	}
@@ -23,7 +23,7 @@ func groupByDepthUsingGraph(sequences []yamlcontracts.UnitOfWorkSequence, graph 
 	depths := make([]int, len(sequences))
 	for i, seq := range sequences {
 		// Use the graph to find dependencies instead of raw DependsOn slice
-		depths[i] = calculateDepthFromGraph(seq.Name, graph, nameToIdx, make(map[string]bool))
+		depths[i] = s.calculateDepthFromGraph(seq.Name, graph, nameToIdx, make(map[string]bool))
 	}
 
 	maxDepth := 0
@@ -41,7 +41,7 @@ func groupByDepthUsingGraph(sequences []yamlcontracts.UnitOfWorkSequence, graph 
 	return batches
 }
 
-func calculateDepthFromGraph(name string, graph map[string]map[string]struct{}, nameToIdx map[string]int, visited map[string]bool) int {
+func (s depthFirstStrategy) calculateDepthFromGraph(name string, graph map[string]map[string]struct{}, nameToIdx map[string]int, visited map[string]bool) int {
 	if visited[name] {
 		return 0
 	}
@@ -54,7 +54,7 @@ func calculateDepthFromGraph(name string, graph map[string]map[string]struct{}, 
 
 	maxParentDepth := -1
 	for depName := range deps {
-		parentDepth := calculateDepthFromGraph(depName, graph, nameToIdx, visited)
+		parentDepth := s.calculateDepthFromGraph(depName, graph, nameToIdx, visited)
 		if parentDepth > maxParentDepth {
 			maxParentDepth = parentDepth
 		}

@@ -1,7 +1,11 @@
 package runner
 
-import yamlcontracts "github.com/terabiome/terabiome/internal/contracts/yaml"
+import (
+	"context"
+
+	yamlcontracts "github.com/terabiome/terabiome/internal/contracts/yaml"
+)
 
 type WorkflowService interface {
-	PrepareExecutionPlan(uow yamlcontracts.UnitOfWork) [][]yamlcontracts.UnitOfWorkSequence
+	PrepareExecutionPlan(ctx context.Context, uow yamlcontracts.UnitOfWork) ([][]yamlcontracts.UnitOfWorkSequence, error)
 }

@@ -1,19 +1,21 @@
 package services
 
-import yamlcontracts "github.com/terabiome/terabiome/internal/contracts/yaml"
+import (
+	"context"
+
+	yamlcontracts "github.com/terabiome/terabiome/internal/contracts/yaml"
+	"github.com/terabiome/terabiome/internal/planner"
+)
 
 type WorkflowService struct {
-	strategy BatchingStrategy
 }
 
-func NewWorkflowService(strategy BatchingStrategy) *WorkflowService {
-	if strategy == nil {
-		strategy = &DepthFirstStrategy{} // Default
-	}
-	return &WorkflowService{strategy: strategy}
+func NewWorkflowService() *WorkflowService {
+	return &WorkflowService{}
 }
 
 // PrepareExecutionPlan takes a UOW and returns structured batches ready for the Executor.
-func (s *WorkflowService) PrepareExecutionPlan(uow yamlcontracts.UnitOfWork) [][]yamlcontracts.UnitOfWorkSequence {
-	return s.strategy.BuildBatches(uow)
+func (s *WorkflowService) PrepareExecutionPlan(ctx context.Context, uow yamlcontracts.UnitOfWork) ([][]yamlcontracts.UnitOfWorkSequence, error) {
+	// log the activity
+	return planner.GenerateSequenceBatch(uow)
 }

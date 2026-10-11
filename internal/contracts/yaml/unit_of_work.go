@@ -9,6 +9,13 @@ import (
 	"github.com/go-playground/validator/v10"
 )
 
+type UnitOfWorkStrategy string
+
+const (
+	UnitOfWorkStrategyDepthFirst UnitOfWorkStrategy = "depth_first"
+	UnitOfWorkStrategySerialized UnitOfWorkStrategy = "serialized"
+)
+
 type UnitOfWorkType string
 
 const (
@@ -18,6 +25,7 @@ const (
 // UnitOfWork is root of YAML manifest for dispatching works.
 type UnitOfWork struct {
 	Name      string               `yaml:"name" validate:"required,min=3,max=100"`
+	Strategy  UnitOfWorkStrategy   `yaml:"strategy" validate:"required"`
 	Targets   []UnitOfWorkTarget   `yaml:"targets" validate:"required,min=1,dive,required"` // ['*'] means for all available ones
 	Type      UnitOfWorkType       `yaml:"type" validate:"required"`
 	Sequences []UnitOfWorkSequence `yaml:"sequences" validate:"required,min=1,dive"`

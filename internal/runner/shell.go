@@ -54,7 +54,10 @@ func (r *ShellRunner) Run(ctx context.Context, uow yamlcontracts.UnitOfWork) err
 	}
 
 	// 2. Execute using Intrinsic
-	batches := r.workflowService.PrepareExecutionPlan(uow)
+	batches, err := r.workflowService.PrepareExecutionPlan(ctx, uow)
+	if err != nil {
+		return fmt.Errorf("failed to prepare execution plan: %w", err)
+	}
 	wfExec := executor.NewWorkflowExecutor(env)
 
 	fmt.Println("Starting local execution...")
