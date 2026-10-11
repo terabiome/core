@@ -6,7 +6,7 @@ import (
 	yamlcontracts "github.com/terabiome/terabiome/internal/contracts/yaml"
 )
 
-func GenerateSequenceBatch(uow yamlcontracts.UnitOfWork) ([][]yamlcontracts.UnitOfWorkSequence, error) {
+func GenerateSequenceBatch(uow yamlcontracts.UnitOfWork) ([]yamlcontracts.UnitOfWorkSequenceBatch, error) {
 	switch uow.Strategy {
 	case yamlcontracts.UnitOfWorkStrategyDepthFirst:
 		return depthFirstStrategy{}.generateBatches(uow), nil

@@ -7,5 +7,5 @@ import (
 )
 
 type WorkflowService interface {
-	PrepareExecutionPlan(ctx context.Context, uow yamlcontracts.UnitOfWork) ([][]yamlcontracts.UnitOfWorkSequence, error)
+	PrepareExecutionPlan(ctx context.Context, uow yamlcontracts.UnitOfWork) ([]yamlcontracts.UnitOfWorkSequenceBatch, error)
 }

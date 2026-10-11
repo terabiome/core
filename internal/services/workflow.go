@@ -15,7 +15,7 @@ func NewWorkflowService() *WorkflowService {
 }
 
 // PrepareExecutionPlan takes a UOW and returns structured batches ready for the Executor.
-func (s *WorkflowService) PrepareExecutionPlan(ctx context.Context, uow yamlcontracts.UnitOfWork) ([][]yamlcontracts.UnitOfWorkSequence, error) {
+func (s *WorkflowService) PrepareExecutionPlan(ctx context.Context, uow yamlcontracts.UnitOfWork) ([]yamlcontracts.UnitOfWorkSequenceBatch, error) {
 	// log the activity
 	return planner.GenerateSequenceBatch(uow)
 }

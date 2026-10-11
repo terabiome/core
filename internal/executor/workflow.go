@@ -20,16 +20,16 @@ func NewWorkflowExecutor(env *operations.OperationEnvironment) *WorkflowExecutor
 
 // Execute takes pre-sorted batches and runs them.
 // Batches are sequential; sequences within a batch are concurrent.
-func (w *WorkflowExecutor) Execute(ctx context.Context, batches [][]yamlcontracts.UnitOfWorkSequence) error {
-	for i, batch := range batches {
+func (w *WorkflowExecutor) Execute(ctx context.Context, batches []yamlcontracts.UnitOfWorkSequenceBatch) error {
+	for _, batch := range batches {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
 		}
 
-		if err := w.runBatch(ctx, batch); err != nil {
-			return fmt.Errorf("batch %d failed: %w", i, err)
+		if err := w.runBatch(ctx, batch.Sequences); err != nil {
+			return fmt.Errorf("batch %d failed: %w", batch.ID, err)
 		}
 	}
 	return nil

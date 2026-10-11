@@ -4,9 +4,16 @@ import yamlcontracts "github.com/terabiome/terabiome/internal/contracts/yaml"
 
 type depthFirstStrategy struct{}
 
-func (s depthFirstStrategy) generateBatches(uow yamlcontracts.UnitOfWork) [][]yamlcontracts.UnitOfWorkSequence {
+func (s depthFirstStrategy) generateBatches(uow yamlcontracts.UnitOfWork) []yamlcontracts.UnitOfWorkSequenceBatch {
 	graph := uow.GetSequenceDependencyGraph()
-	return s.groupByDepthUsingGraph(uow.Sequences, graph.FirstDegreeGraph)
+
+	primitiveBatches := s.groupByDepthUsingGraph(uow.Sequences, graph.FirstDegreeGraph)
+	batches := make([]yamlcontracts.UnitOfWorkSequenceBatch, len(primitiveBatches))
+	for idx := range primitiveBatches {
+		batches[idx].ID = idx
+	}
+
+	return batches
 }
 
 // groupByDepthUsingGraph uses the pre-validated adjacency list to find max depth.
