@@ -60,7 +60,7 @@ func (r *ShellRunner) Run(ctx context.Context, uow yamlcontracts.UnitOfWork) err
 	}
 	wfExec := executor.NewWorkflowExecutor(env)
 
-	fmt.Println("Starting local execution...")
+	r.logger.InfoContext(ctx, "Starting local execution...")
 	return wfExec.Execute(ctx, batches)
 }
 
