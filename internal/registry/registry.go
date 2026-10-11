@@ -16,6 +16,9 @@ var registry = map[string]func() operations.Operation{
 	string(operations.OperationNameFirewallCmd): func() operations.Operation {
 		return operations.NewFirewallCmdOperation()
 	},
+	string(operations.OperationNameConfigureKernelModules): func() operations.Operation {
+		return operations.NewConfigureKernelModulesOperation()
+	},
 }
 
 func Get(name string) (operations.Operation, error) {
