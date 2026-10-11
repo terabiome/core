@@ -28,18 +28,18 @@ func (w *WorkflowExecutor) Execute(ctx context.Context, batches []yamlcontracts.
 		default:
 		}
 
-		if err := w.runBatch(ctx, batch.Sequences); err != nil {
+		if err := w.runBatch(ctx, batch); err != nil {
 			return fmt.Errorf("batch %d failed: %w", batch.ID, err)
 		}
 	}
 	return nil
 }
 
-func (w *WorkflowExecutor) runBatch(ctx context.Context, sequences []yamlcontracts.UnitOfWorkSequence) error {
+func (w *WorkflowExecutor) runBatch(ctx context.Context, batch yamlcontracts.UnitOfWorkSequenceBatch) error {
 	var wg sync.WaitGroup
-	errChan := make(chan error, len(sequences))
+	errChan := make(chan error, len(batch.Sequences))
 
-	for _, seq := range sequences {
+	for _, seq := range batch.Sequences {
 		wg.Add(1)
 		go func(s yamlcontracts.UnitOfWorkSequence) {
 			defer wg.Done()

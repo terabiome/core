@@ -8,9 +8,15 @@ func (s depthFirstStrategy) generateBatches(uow yamlcontracts.UnitOfWork) []yaml
 	graph := uow.GetSequenceDependencyGraph()
 
 	primitiveBatches := s.groupByDepthUsingGraph(uow.Sequences, graph.FirstDegreeGraph)
-	batches := make([]yamlcontracts.UnitOfWorkSequenceBatch, len(primitiveBatches))
-	for idx := range primitiveBatches {
-		batches[idx].ID = idx
+	batches := make([]yamlcontracts.UnitOfWorkSequenceBatch, 0, len(primitiveBatches))
+	for idx, primitiveBatch := range primitiveBatches {
+		for subIdx := range primitiveBatch {
+			primitiveBatch[subIdx].BatchID = subIdx
+		}
+		batches[idx] = yamlcontracts.UnitOfWorkSequenceBatch{
+			ID:        idx,
+			Sequences: primitiveBatch,
+		}
 	}
 
 	return batches

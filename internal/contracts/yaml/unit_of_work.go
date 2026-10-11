@@ -24,7 +24,7 @@ const (
 
 // UnitOfWork is root of YAML manifest for dispatching works.
 type UnitOfWork struct {
-	UUID      string               `yaml:"uuid"`
+	ID        string               `yaml:"id"`
 	Name      string               `yaml:"name" validate:"required,min=3,max=100"`
 	Strategy  UnitOfWorkStrategy   `yaml:"strategy" validate:"required"`
 	Targets   []UnitOfWorkTarget   `yaml:"targets" validate:"required,min=1,dive,required"` // ['*'] means for all available ones
@@ -40,7 +40,8 @@ type UnitOfWorkTarget struct {
 
 // UnitOfWorkSequence is part of UnitOfWork, representing logical grouping of linear execution steps.
 type UnitOfWorkSequence struct {
-	UUID      string           `yaml:"uuid"`
+	ID        string           `yaml:"id"`
+	BatchID   int              `yaml:"batch_id"`
 	Name      string           `yaml:"name" validate:"required,alphanum,min=3,max=50"`
 	DependsOn []string         `yaml:"depends_on" validate:"dive,required,alphanum"` // must not contain names of another dependent sequence, else fatal
 	Steps     []UnitOfWorkStep `yaml:"steps" validate:"required,min=1,dive"`
@@ -52,7 +53,7 @@ func (s UnitOfWorkSequence) IsIndependent() bool {
 
 // UnitOfWorkStep is part of UnitOfWorkSequence, representing the smallest unit of execution.
 type UnitOfWorkStep struct {
-	UUID       string         `yaml:"uuid"`
+	ID         string         `yaml:"id"`
 	Name       string         `yaml:"name" validate:"required,alphanum,min=3,max=50"`
 	IsAsync    bool           `yaml:"is_async"` // false by default, unsupported as of now
 	Parameters map[string]any `yaml:"parameters"`
