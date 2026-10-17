@@ -6,7 +6,7 @@ type ModprobeOperation struct {
 
 // Name implements [Operation].
 func (s ModprobeOperation) Name() string {
-	return string(OperationNameModprobe)
+	return string(OperationNameModprobeShell)
 }
 
 // PreCheck implements [Operation].

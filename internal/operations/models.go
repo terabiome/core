@@ -9,10 +9,10 @@ import (
 type OperationName string
 
 const (
-	OperationNameSystemctl                     OperationName = "systemctl"
-	OperationNameFirewallCmd                   OperationName = "firewall-cmd"
-	OperationNameSysctl                        OperationName = "sysctl"
-	OperationNameModprobe                      OperationName = "modprobe"
+	OperationNameSystemctlShell                OperationName = "systemctl-shell"
+	OperationNameFirewallCmdShell              OperationName = "firewall-cmd-shell"
+	OperationNameSysctlShell                   OperationName = "sysctl-shell"
+	OperationNameModprobeShell                 OperationName = "modprobe-shell"
 	OperationNameConfigureKernelModulesConf    OperationName = "configure-kernel-modules-conf"
 	OperationNameConfigureKernelParametersConf OperationName = "configure-kernel-parameters-conf"
 )

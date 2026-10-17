@@ -6,7 +6,7 @@ type FirewallCmdOperation struct {
 
 // Name implements [Operation].
 func (s FirewallCmdOperation) Name() string {
-	return string(OperationNameFirewallCmd)
+	return string(OperationNameFirewallCmdShell)
 }
 
 // PreCheck implements [Operation].

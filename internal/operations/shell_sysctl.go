@@ -6,7 +6,7 @@ type SysctlOperation struct {
 
 // Name implements [Operation].
 func (s SysctlOperation) Name() string {
-	return string(OperationNameSysctl)
+	return string(OperationNameSysctlShell)
 }
 
 // PreCheck implements [Operation].
