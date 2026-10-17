@@ -9,7 +9,6 @@ import (
 type OperationName string
 
 const (
-	OperationNameDemo                      OperationName = "demo"
 	OperationNameSystemctl                 OperationName = "systemctl"
 	OperationNameFirewallCmd               OperationName = "firewall-cmd"
 	OperationNameSysctl                    OperationName = "sysctl"
