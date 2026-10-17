@@ -4,35 +4,31 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 
 	"github.com/go-viper/mapstructure/v2"
-	shellexecutors "github.com/terabiome/terabiome/pkg/executors/shell"
 )
 
-type sysctlParameterParameters struct {
-	Immediate bool                   `mapstructure:"immediate"`
-	Entries   []sysctlParameterEntry `mapstructure:"entries"`
-}
-
-type sysctlParameterEntry struct {
+type sysctlConfEntry struct {
 	Path  string `mapstructure:"path"`
 	Key   string `mapstructure:"key"`
 	Value string `mapstructure:"value"`
 }
 
-type ConfigureKernelParametersOperation struct {
+type ConfigureKernelParametersConfOperation struct {
 	rawParameters map[string]any
-	parameters    sysctlParameterParameters
+	parameters    struct {
+		Entries []sysctlConfEntry `mapstructure:"entries"`
+	}
 }
 
-func (s *ConfigureKernelParametersOperation) Name() string {
-	return string(OperationNameConfigureKernelParameters)
+func (s *ConfigureKernelParametersConfOperation) Name() string {
+	return string(OperationNameConfigureKernelParametersConf)
 }
 
-func (s *ConfigureKernelParametersOperation) PreCheck(env *OperationEnvironment) error {
-	// Validate sysctl key format (e.g., net.ipv4.ip_forward)
+func (s *ConfigureKernelParametersConfOperation) PreCheck(env *OperationEnvironment) error {
 	keyPattern := regexp.MustCompile(`^[a-z][a-z0-9_.-]+$`)
 	pathPattern := regexp.MustCompile(`^/etc/sysctl.d/[a-zA-Z0-9_\-]+\.conf$`)
 
@@ -47,14 +43,18 @@ func (s *ConfigureKernelParametersOperation) PreCheck(env *OperationEnvironment)
 	return nil
 }
 
-func (s *ConfigureKernelParametersOperation) Run(ctx context.Context, env *OperationEnvironment) error {
+func (s *ConfigureKernelParametersConfOperation) Run(ctx context.Context, env *OperationEnvironment) error {
 	// 1. Aggregate entries by file path
 	fileParams := make(map[string]map[string]string)
 
 	for _, entry := range s.parameters.Entries {
+		dir := filepath.Dir(entry.Path)
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return fmt.Errorf("failed to create dir %s: %w", dir, err)
+		}
+
 		if _, ok := fileParams[entry.Path]; !ok {
 			fileParams[entry.Path] = make(map[string]string)
-
 			// Load existing params from disk
 			content, err := os.ReadFile(entry.Path)
 			if err == nil {
@@ -85,35 +85,17 @@ func (s *ConfigureKernelParametersOperation) Run(ctx context.Context, env *Opera
 		if err := os.WriteFile(path, []byte(content), 0644); err != nil {
 			return fmt.Errorf("failed to write sysctl file %s: %w", path, err)
 		}
-		fmt.Fprintf(env.Journaler, "Updated sysctl parameters in %s\n", path)
-	}
-
-	// 3. Immediate Application
-	if s.parameters.Immediate {
-		cmdInput := shellexecutors.CommandInput{
-			Mode:   shellexecutors.ModeSync,
-			Stdout: env.Journaler,
-			Stderr: env.Journaler,
-			Command: shellexecutors.Command{
-				Executable: "sysctl",
-				Arguments:  []string{"--system"},
-			},
-		}
-		output := env.Executor.Execute(ctx, &cmdInput)
-		output.Wait()
-		if output.Error != nil {
-			return fmt.Errorf("failed to apply sysctl changes immediately: %w", output.Error)
-		}
+		fmt.Fprintf(env.Journaler, "[INFO] Updated sysctl config in %s\n", path)
 	}
 
 	return nil
 }
 
-func (s *ConfigureKernelParametersOperation) SetParameters(parameters map[string]any) error {
+func (s *ConfigureKernelParametersConfOperation) SetParameters(parameters map[string]any) error {
 	s.rawParameters = parameters
 	return mapstructure.Decode(s.rawParameters, &s.parameters)
 }
 
-func NewConfigureKernelParametersOperation() *ConfigureKernelParametersOperation {
-	return &ConfigureKernelParametersOperation{}
+func NewConfigureKernelParametersConfOperation() *ConfigureKernelParametersConfOperation {
+	return &ConfigureKernelParametersConfOperation{}
 }

@@ -22,6 +22,9 @@ var registry = map[string]func() operations.Operation{
 	string(operations.OperationNameConfigureKernelModulesConf): func() operations.Operation {
 		return operations.NewConfigureKernelModulesConfOperation()
 	},
+	string(operations.OperationNameConfigureKernelParametersConf): func() operations.Operation {
+		return operations.NewConfigureKernelParametersConfOperation()
+	},
 }
 
 func Get(name string) (operations.Operation, error) {
