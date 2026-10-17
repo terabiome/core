@@ -13,6 +13,12 @@ var registry = map[string]func() operations.Operation{
 	string(operations.OperationNameFirewallCmd): func() operations.Operation {
 		return operations.NewFirewallCmdOperation()
 	},
+	string(operations.OperationNameSysctl): func() operations.Operation {
+		return operations.NewSysctlOperation()
+	},
+	string(operations.OperationNameModprobe): func() operations.Operation {
+		return operations.NewModprobeOperation()
+	},
 	string(operations.OperationNameConfigureKernelModules): func() operations.Operation {
 		return operations.NewConfigureKernelModulesOperation()
 	},

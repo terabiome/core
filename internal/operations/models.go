@@ -12,6 +12,7 @@ const (
 	OperationNameSystemctl                 OperationName = "systemctl"
 	OperationNameFirewallCmd               OperationName = "firewall-cmd"
 	OperationNameSysctl                    OperationName = "sysctl"
+	OperationNameModprobe                  OperationName = "modprobe"
 	OperationNameConfigureKernelModules    OperationName = "configure-kernel-modules"
 	OperationNameConfigureKernelParameters OperationName = "configure-kernel-parameters"
 )
