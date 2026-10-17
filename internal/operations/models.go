@@ -9,6 +9,7 @@ import (
 type OperationName string
 
 const (
+	OperationNameShelllCmd                     OperationName = "shell-cmd"
 	OperationNameSystemctlShell                OperationName = "systemctl-shell"
 	OperationNameFirewallCmdShell              OperationName = "firewall-cmd-shell"
 	OperationNameSysctlShell                   OperationName = "sysctl-shell"

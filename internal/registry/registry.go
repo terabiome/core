@@ -19,6 +19,9 @@ var registry = map[string]func() operations.Operation{
 	string(operations.OperationNameModprobeShell): func() operations.Operation {
 		return operations.NewModprobeOperation()
 	},
+	string(operations.OperationNameShelllCmd): func() operations.Operation {
+		return operations.NewShellCmdOperation()
+	},
 	string(operations.OperationNameConfigureKernelModulesConf): func() operations.Operation {
 		return operations.NewConfigureKernelModulesConfOperation()
 	},
