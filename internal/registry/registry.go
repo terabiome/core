@@ -7,18 +7,6 @@ import (
 )
 
 var registry = map[string]func() operations.Operation{
-	string(operations.OperationNameSystemctlShell): func() operations.Operation {
-		return operations.NewSystemctlOperation()
-	},
-	string(operations.OperationNameFirewallCmdShell): func() operations.Operation {
-		return operations.NewFirewallCmdOperation()
-	},
-	string(operations.OperationNameSysctlShell): func() operations.Operation {
-		return operations.NewSysctlOperation()
-	},
-	string(operations.OperationNameModprobeShell): func() operations.Operation {
-		return operations.NewModprobeOperation()
-	},
 	string(operations.OperationNameShelllCmd): func() operations.Operation {
 		return operations.NewShellCmdOperation()
 	},
