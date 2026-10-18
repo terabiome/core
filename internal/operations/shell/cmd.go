@@ -101,6 +101,6 @@ func (op *CmdOperation) Run(ctx context.Context, env *operations.OperationEnviro
 	return nil
 }
 
-func NewCmdOperation() *CmdOperation {
+func NewCmdOperation() operations.Operation {
 	return &CmdOperation{}
 }

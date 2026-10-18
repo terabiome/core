@@ -57,6 +57,6 @@ func (op *ModifyConfigOperation) SetParameters(parameters map[string]any) error 
 	return mapstructure.Decode(op.rawParameters, &op.parameters)
 }
 
-func NewModifyConfigOperation() *ModifyConfigOperation {
+func NewModifyConfigOperation() operations.Operation {
 	return &ModifyConfigOperation{}
 }

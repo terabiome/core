@@ -84,6 +84,6 @@ func (op *InstallBinaryOperation) SetParameters(parameters map[string]any) error
 	return mapstructure.Decode(op.rawParameters, &op.parameters)
 }
 
-func NewInstallBinaryOperation() *InstallBinaryOperation {
+func NewInstallBinaryOperation() operations.Operation {
 	return &InstallBinaryOperation{}
 }

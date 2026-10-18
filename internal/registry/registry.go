@@ -4,20 +4,19 @@ import (
 	"fmt"
 
 	"github.com/terabiome/terabiome/internal/operations"
+	k3soperations "github.com/terabiome/terabiome/internal/operations/k3s"
 	kerneloperations "github.com/terabiome/terabiome/internal/operations/kernel"
 	shelloperations "github.com/terabiome/terabiome/internal/operations/shell"
+	systemdoperations "github.com/terabiome/terabiome/internal/operations/systemd"
 )
 
-var registry = map[string]func() operations.Operation{
-	string(operations.OperationNameShellCmd): func() operations.Operation {
-		return shelloperations.NewCmdOperation()
-	},
-	string(operations.OperationNameKernelModifyModulesConfig): func() operations.Operation {
-		return kerneloperations.NewModifyModulesConfigOperation()
-	},
-	string(operations.OperationNameKernelModifyParametersConfig): func() operations.Operation {
-		return kerneloperations.NewModifyParametersConfigOperation()
-	},
+var registry = OperationRegistry{
+	string(operations.OperationNameShellCmd):                     shelloperations.NewCmdOperation,
+	string(operations.OperationNameKernelModifyModulesConfig):    kerneloperations.NewModifyModulesConfigOperation,
+	string(operations.OperationNameKernelModifyParametersConfig): kerneloperations.NewModifyParametersConfigOperation,
+	string(operations.OperationNameSystemdConfigureUnit):         systemdoperations.NewConfigureUnitOperation,
+	string(operations.OperationNameK3sModifyConfig):              k3soperations.NewModifyConfigOperation,
+	string(operations.OperationNameK3sInstallBinary):             k3soperations.NewInstallBinaryOperation,
 }
 
 func Get(name string) (operations.Operation, error) {

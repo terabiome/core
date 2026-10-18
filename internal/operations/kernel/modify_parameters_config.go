@@ -91,6 +91,6 @@ func (op *ModifyParametersConfigOperation) SetParameters(parameters map[string]a
 	return mapstructure.Decode(op.rawParameters, &op.parameters)
 }
 
-func NewModifyParametersConfigOperation() *ModifyParametersConfigOperation {
+func NewModifyParametersConfigOperation() operations.Operation {
 	return &ModifyParametersConfigOperation{}
 }
