@@ -1,4 +1,4 @@
-package operations
+package kernel
 
 import (
 	"context"
@@ -9,30 +9,25 @@ import (
 	"strings"
 
 	"github.com/go-viper/mapstructure/v2"
+	"github.com/terabiome/terabiome/internal/operations"
 )
 
-type sysctlConfEntry struct {
-	Path  string `mapstructure:"path"`
-	Key   string `mapstructure:"key"`
-	Value string `mapstructure:"value"`
-}
-
-type ConfigureKernelParametersConfOperation struct {
+type ModifyParametersConfigOperation struct {
 	rawParameters map[string]any
 	parameters    struct {
 		Entries []sysctlConfEntry `mapstructure:"entries"`
 	}
 }
 
-func (s *ConfigureKernelParametersConfOperation) Name() string {
-	return string(OperationNameConfigureKernelParametersConf)
+func (op *ModifyParametersConfigOperation) Name() string {
+	return string(operations.OperationNameKernelModifyParametersConfig)
 }
 
-func (s *ConfigureKernelParametersConfOperation) PreCheck(env *OperationEnvironment) error {
+func (op *ModifyParametersConfigOperation) PreCheck(env *operations.OperationEnvironment) error {
 	keyPattern := regexp.MustCompile(`^[a-z][a-z0-9_.-]+$`)
 	pathPattern := regexp.MustCompile(`^/etc/sysctl.d/[a-zA-Z0-9_\-]+\.conf$`)
 
-	for _, entry := range s.parameters.Entries {
+	for _, entry := range op.parameters.Entries {
 		if !keyPattern.MatchString(entry.Key) {
 			return fmt.Errorf("precheck failed: invalid sysctl key '%s'", entry.Key)
 		}
@@ -43,11 +38,11 @@ func (s *ConfigureKernelParametersConfOperation) PreCheck(env *OperationEnvironm
 	return nil
 }
 
-func (s *ConfigureKernelParametersConfOperation) Run(ctx context.Context, env *OperationEnvironment) error {
+func (op *ModifyParametersConfigOperation) Run(ctx context.Context, env *operations.OperationEnvironment) error {
 	// 1. Aggregate entries by file path
 	fileParams := make(map[string]map[string]string)
 
-	for _, entry := range s.parameters.Entries {
+	for _, entry := range op.parameters.Entries {
 		dir := filepath.Dir(entry.Path)
 		if err := os.MkdirAll(dir, 0755); err != nil {
 			return fmt.Errorf("failed to create dir %s: %w", dir, err)
@@ -91,11 +86,11 @@ func (s *ConfigureKernelParametersConfOperation) Run(ctx context.Context, env *O
 	return nil
 }
 
-func (s *ConfigureKernelParametersConfOperation) SetParameters(parameters map[string]any) error {
-	s.rawParameters = parameters
-	return mapstructure.Decode(s.rawParameters, &s.parameters)
+func (op *ModifyParametersConfigOperation) SetParameters(parameters map[string]any) error {
+	op.rawParameters = parameters
+	return mapstructure.Decode(op.rawParameters, &op.parameters)
 }
 
-func NewConfigureKernelParametersConfOperation() *ConfigureKernelParametersConfOperation {
-	return &ConfigureKernelParametersConfOperation{}
+func NewModifyParametersConfigOperation() *ModifyParametersConfigOperation {
+	return &ModifyParametersConfigOperation{}
 }

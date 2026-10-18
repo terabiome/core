@@ -8,14 +8,15 @@ import (
 
 type OperationName string
 
+// Shell namespace
 const (
-	OperationNameShelllCmd                     OperationName = "shell-cmd"
-	OperationNameSystemctlShell                OperationName = "systemctl-shell"
-	OperationNameFirewallCmdShell              OperationName = "firewall-cmd-shell"
-	OperationNameSysctlShell                   OperationName = "sysctl-shell"
-	OperationNameModprobeShell                 OperationName = "modprobe-shell"
-	OperationNameConfigureKernelModulesConf    OperationName = "configure-kernel-modules-conf"
-	OperationNameConfigureKernelParametersConf OperationName = "configure-kernel-parameters-conf"
+	OperationNameShellCmd OperationName = "shell.cmd"
+)
+
+// Kernel namespace
+const (
+	OperationNameKernelModifyModulesConfig    OperationName = "kernel.modify-modules-config"
+	OperationNameKernelModifyParametersConfig OperationName = "kernel.modify-parameters-config"
 )
 
 type OperationEnvironment struct {

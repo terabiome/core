@@ -4,17 +4,19 @@ import (
 	"fmt"
 
 	"github.com/terabiome/terabiome/internal/operations"
+	kerneloperations "github.com/terabiome/terabiome/internal/operations/kernel"
+	shelloperations "github.com/terabiome/terabiome/internal/operations/shell"
 )
 
 var registry = map[string]func() operations.Operation{
-	string(operations.OperationNameShelllCmd): func() operations.Operation {
-		return operations.NewShellCmdOperation()
+	string(operations.OperationNameShellCmd): func() operations.Operation {
+		return shelloperations.NewCmdOperation()
 	},
-	string(operations.OperationNameConfigureKernelModulesConf): func() operations.Operation {
-		return operations.NewConfigureKernelModulesConfOperation()
+	string(operations.OperationNameKernelModifyModulesConfig): func() operations.Operation {
+		return kerneloperations.NewModifyModulesConfigOperation()
 	},
-	string(operations.OperationNameConfigureKernelParametersConf): func() operations.Operation {
-		return operations.NewConfigureKernelParametersConfOperation()
+	string(operations.OperationNameKernelModifyParametersConfig): func() operations.Operation {
+		return kerneloperations.NewModifyParametersConfigOperation()
 	},
 }
 
