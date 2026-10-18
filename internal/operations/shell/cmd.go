@@ -24,12 +24,12 @@ type CmdOperation struct {
 	parameters    cmdParameters
 }
 
-// Name implements [Operation].
+// Name implements [operations.Operation].
 func (op *CmdOperation) Name() string {
 	return string(operations.OperationNameShellCmd)
 }
 
-// PreCheck implements [Operation].
+// PreCheck implements [operations.Operation].
 func (op *CmdOperation) PreCheck(env *operations.OperationEnvironment) error {
 	regexes, exist := whitelistedCommands[op.parameters.Executable]
 	if !exist {
@@ -48,7 +48,7 @@ func (op *CmdOperation) PreCheck(env *operations.OperationEnvironment) error {
 	return nil
 }
 
-// SetParameters implements [Operation].
+// SetParameters implements [operations.Operation].
 func (op *CmdOperation) SetParameters(parameters map[string]any) error {
 	op.rawParameters = parameters
 	if err := mapstructure.Decode(op.rawParameters, &op.parameters); err != nil {
@@ -77,7 +77,7 @@ func (op *CmdOperation) SetParameters(parameters map[string]any) error {
 	return nil
 }
 
-// Run implements [Operation].
+// Run implements [operations.Operation].
 func (op *CmdOperation) Run(ctx context.Context, env *operations.OperationEnvironment) error {
 	cmdInput := shellexecutors.CommandInput{
 		Mode:   shellexecutors.ModeSync,
