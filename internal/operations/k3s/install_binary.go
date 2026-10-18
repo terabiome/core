@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"runtime"
 
 	"github.com/go-viper/mapstructure/v2"
 	"github.com/terabiome/terabiome/internal/operations"
@@ -33,7 +32,10 @@ func (op *InstallBinaryOperation) PreCheck(env *operations.OperationEnvironment)
 
 // Run implements [operations.Operation].
 func (op *InstallBinaryOperation) Run(ctx context.Context, env *operations.OperationEnvironment) error {
-	arch := runtime.GOARCH
+	var (
+		binaryName = "k3s"
+		arch       = env.NodeInfo.Arch
+	)
 	switch arch {
 	case "arm":
 		arch = "armhf" // K3s uses armhf for 32-bit ARM
@@ -41,7 +43,11 @@ func (op *InstallBinaryOperation) Run(ctx context.Context, env *operations.Opera
 		arch = "arm64"
 	}
 
-	url := fmt.Sprintf("%s/%s/k3s-%s", defaultK3sInstallBaseURL, op.parameters.Version, arch)
+	if arch != "amd64" {
+		binaryName = fmt.Sprintf("%s-%s", binaryName, arch)
+	}
+
+	url := fmt.Sprintf("%s/%s/%s", defaultK3sInstallBaseURL, op.parameters.Version, binaryName)
 
 	fmt.Fprintf(env.Journaler, "Downloading K3s binary (%s) from %s\n", arch, url)
 
