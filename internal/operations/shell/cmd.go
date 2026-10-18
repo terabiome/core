@@ -12,11 +12,11 @@ import (
 	shellexecutors "github.com/terabiome/terabiome/pkg/executors/shell"
 )
 
-var whitelistedCommands = map[string]*regexp.Regexp{
-	"systemctl":    nil,
-	"sysctl":       nil,
-	"modprobe":     nil,
-	"firewall-cmd": nil,
+var whitelistedCommands = map[string][]regexp.Regexp{
+	"systemctl":    {},
+	"sysctl":       {},
+	"modprobe":     {},
+	"firewall-cmd": {},
 }
 
 type CmdOperation struct {
@@ -31,13 +31,18 @@ func (op *CmdOperation) Name() string {
 
 // PreCheck implements [Operation].
 func (op *CmdOperation) PreCheck(env *operations.OperationEnvironment) error {
-	regex, exist := whitelistedCommands[op.parameters.Executable]
+	regexes, exist := whitelistedCommands[op.parameters.Executable]
 	if !exist {
 		return fmt.Errorf("command is not allowed to run")
 	}
 
-	if regex != nil && !regex.MatchString(op.parameters.Command) {
-		return fmt.Errorf("command does not match the format")
+	if len(regexes) > 0 {
+		// greedy, match 1st and return immediately
+		for _, regex := range regexes {
+			if !regex.MatchString(op.parameters.Command) {
+				return fmt.Errorf("command does not match the format: %s", regex.String())
+			}
+		}
 	}
 
 	return nil
