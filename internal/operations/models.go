@@ -19,6 +19,11 @@ const (
 	OperationNameKernelModifyParametersConfig OperationName = "kernel.modify-parameters-config"
 )
 
+// K3s namespace
+const (
+	OperationNameK3sInstallBinary OperationName = "k3s.install-binary"
+)
+
 type OperationEnvironment struct {
 	NodeInfo  models.NodeInfo
 	Journaler *writers.Journaler
