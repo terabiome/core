@@ -27,7 +27,7 @@ const (
 
 // Systemd namespace
 const (
-	OperationNameConfigureUnit OperationName = "systemd.configure-unit"
+	OperationNameSystemdConfigureUnit OperationName = "systemd.configure-unit"
 )
 
 type OperationEnvironment struct {
