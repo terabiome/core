@@ -11,20 +11,101 @@ targets:
       - ABCDEFGHIKLMNOPQRSTUVWXYZ
 type: workflow  # "workflow" = one-shot execution. No reconciliation.
 sequences:
-  # Independent - run in parallel
-  # Dependent - flattened into a single master chain
-  - name: network-hardening
+  # --- Phase 1: OS Primitives & Hardening ---
+  - name: os-hardening
     steps:
-      - name: configure_firewalld_zones
-      - name: apply_sysctl_hardening
+      # Load required kernel modules for Kubernetes networking
+      - name: kernel.modify-modules-config
+        parameters:
+          entries:
+            - path: /etc/modules-load.d/k8s.conf
+              value: br_netfilter
+            - path: /etc/modules-load.d/k8s.conf
+              value: overlay
+      
+      # Activate modules immediately
+      - name: shell.cmd
+        parameters:
+          command: modprobe br_netfilter overlay
+          log_command_in_std_streams: true
 
-  - name: hardware-checks
-    steps:
-      - name: verify_cpu_flags
+      # Configure sysctl for network bridging and forwarding
+      - name: kernel.modify-parameters-config
+        parameters:
+          entries:
+            - path: /etc/sysctl.d/k8s.conf
+              key: net.bridge.bridge-nf-call-iptables
+              value: "1"
+            - path: /etc/sysctl.d/k8s.conf
+              key: net.ipv4.ip_forward
+              value: "1"
 
-  - name: k8s-installation
-    depends_on: ["network-hardening", "hardware-checks"]
+      # Apply sysctl changes to the running kernel
+      - name: shell.cmd
+        parameters:
+          command: sysctl --system
+          log_command_in_std_streams: true
+
+  # --- Phase 2: K3s Foundation ---
+  - name: k3s-foundation
+    depends_on:
+      - os-hardening
     steps:
-      - name: install_k3s_binary
-        params:
-          version: v1.29.0+k3s1
+      # 1. Download and install the static K3s binary
+      - name: k3s.install-binary
+        parameters:
+          version: v1.37.1+k3s1
+
+      # 2. Write the K3s configuration file (Atomic File Manager)
+      - name: k3s.modify-config
+        parameters:
+          entries:
+            - path: /etc/rancher/k3s/config.yaml
+              config:
+                cluster-init: true           # Enable embedded etcd for HA
+                write-kubeconfig-mode: "0644" # Allow non-root access to kubeconfig
+                tls-san:
+                  - exoticflora-kvm-hosthatch-1
+                bind-address: 0.0.0.0
+
+      # 3. Define the Systemd Service Unit (Explicit, no magic scripts)
+      - name: systemd.configure-unit
+        parameters:
+          name: k3s
+          content: |
+            [Unit]
+            Description=Lightweight Kubernetes
+            Documentation=https://k3s.io
+            Wants=network-online.target
+            
+            [Service]
+            Type=notify
+            EnvironmentFile=-/etc/systemd/system/k3s.service.env
+            KillMode=process
+            Delegate=yes
+            LimitNOFILE=1048576
+            LimitNPROC=infinity
+            LimitCORE=infinity
+            TasksMax=infinity
+            TimeoutStartSec=0
+            Restart=always
+            RestartSec=5s
+            ExecStart=/usr/local/bin/k3s server
+            StandardOutput=journal
+            StandardError=journal
+            SyslogIdentifier=k3s
+            
+            [Install]
+            WantedBy=multi-user.target
+
+      # 4. Reload Systemd to recognize the new unit file
+      - name: shell.cmd
+        parameters:
+          command: systemctl daemon-reload
+          log_command_in_std_streams: true
+
+      # 5. Enable and Start the K3s service
+      - name: shell.cmd
+        parameters:
+          command: systemctl enable --now k3s
+          log_command_in_std_streams: true
