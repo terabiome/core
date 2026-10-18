@@ -22,6 +22,12 @@ const (
 // K3s namespace
 const (
 	OperationNameK3sInstallBinary OperationName = "k3s.install-binary"
+	OperationNameK3sModifyConfig  OperationName = "k3s.modify-config"
+)
+
+// Systemd namespace
+const (
+	OperationNameConfigureUnit OperationName = "systemd.configure-unit"
 )
 
 type OperationEnvironment struct {
