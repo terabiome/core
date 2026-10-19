@@ -5,25 +5,25 @@ import (
 )
 
 type Message struct {
-	msg jetstream.Msg
+	Raw jetstream.Msg
 }
 
 // Acknowledge implements [messaging.Message].
 func (m Message) Acknowledge() error {
-	return m.msg.Ack()
+	return m.Raw.Ack()
 }
 
 // Data implements [messaging.Message].
 func (m Message) Data() []byte {
-	return m.msg.Data()
+	return m.Raw.Data()
 }
 
 // Headers implements [messaging.Message].
 func (m Message) Headers() map[string][]string {
-	return m.msg.Headers()
+	return m.Raw.Headers()
 }
 
 // Reject implements [messaging.Message].
 func (m Message) Reject() error {
-	return m.msg.Nak()
+	return m.Raw.Nak()
 }
