@@ -2,7 +2,7 @@ package database
 
 import (
 	"context"
-	"log"
+	"fmt"
 	"sync"
 	"time"
 
@@ -17,49 +17,65 @@ const (
 	ConnectionTypePostgresql ConnectionType = "postgresql"
 )
 
-var pool *pgxpool.Pool
+type Manager struct {
+	pool *pgxpool.Pool
+}
 
-func Init() {
-	mu := sync.Mutex{}
-	mu.Lock()
+var (
+	globalManager *Manager
+	initOnce      sync.Once
+)
 
-	defer mu.Unlock()
+func Init() error {
+	var err error
+	initOnce.Do(func() {
+		cfg := config.Get().Database
+		if cfg.Type != string(ConnectionTypePostgresql) {
+			err = fmt.Errorf("unsupported database type: %s", cfg.Type)
+			return
+		}
 
-	cfg := config.Get().Database
+		poolCfg, parseErr := pgxpool.ParseConfig(cfg.DSN)
+		if parseErr != nil {
+			err = fmt.Errorf("failed to parse PGX config: %w", parseErr)
+			return
+		}
 
-	// only support postgres
-	switch cfg.Type {
-	case string(ConnectionTypePostgresql):
-	default:
-		log.Fatalf("unsupported connection type: %v", cfg.Type)
-	}
-	log.Printf("setting up connection type %s\n", cfg.Type)
+		// Edge-optimized defaults
+		poolCfg.MinConns = 1
+		poolCfg.MaxConns = 5 // Slightly higher for concurrent workflows
+		poolCfg.MaxConnLifetime = time.Hour
+		poolCfg.MaxConnIdleTime = 30 * time.Minute
 
-	// start connecting
-	poolCfg, err := pgxpool.ParseConfig(cfg.DSN)
-	if err != nil {
-		log.Fatalf("failed to parse config for PGX pool: %v", err)
-	}
-	// set default values (can set via config later)
-	poolCfg.MinConns = 1
-	poolCfg.MaxConns = 2
-	poolCfg.MaxConnLifetime = time.Hour
-	poolCfg.MaxConnIdleTime = 30 * time.Minute
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
 
-	ctx := context.Background()
-	pool, err = pgxpool.NewWithConfig(ctx, poolCfg)
-	if err != nil {
-		log.Fatalf("failed to establish PGX pool connection: %v", err)
-	}
-	defer pool.Close()
+		pool, poolErr := pgxpool.NewWithConfig(ctx, poolCfg)
+		if poolErr != nil {
+			err = fmt.Errorf("failed to create PGX pool: %w", poolErr)
+			return
+		}
 
-	// validate connection
-	if err = pool.Ping(ctx); err != nil {
-		log.Fatalf("failed to validate PGX pool connection: %v", err)
-	}
+		if pingErr := pool.Ping(ctx); pingErr != nil {
+			pool.Close()
+			err = fmt.Errorf("failed to ping database: %w", pingErr)
+			return
+		}
+
+		globalManager = &Manager{pool: pool}
+	})
+	return err
 }
 
 func GetPool() *pgxpool.Pool {
-	// allow nil-reference panic attacks
-	return pool
+	if globalManager == nil {
+		panic("database not initialized. Call database.Init() first")
+	}
+	return globalManager.pool
+}
+
+func Close() {
+	if globalManager != nil && globalManager.pool != nil {
+		globalManager.pool.Close()
+	}
 }
