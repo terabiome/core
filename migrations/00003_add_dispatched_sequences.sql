@@ -1,5 +1,5 @@
 -- +goose Up
-CREATE TABLE dispatched_sequences IF NOT EXISTS (
+CREATE TABLE IF NOT EXISTS dispatched_sequences (
     uuid UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     dispatch_uuid UUID NOT NULL,
     status TEXT NOT NULL DEFAULT 'pending',

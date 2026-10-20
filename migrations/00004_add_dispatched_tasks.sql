@@ -1,5 +1,5 @@
 -- +goose Up
-CREATE TABLE dispatched_tasks IF NOT EXISTS (
+CREATE TABLE IF NOT EXISTS dispatched_tasks (
     uuid UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     sequence_uuid UUID NOT NULL,
     status TEXT NOT NULL DEFAULT 'pending',

@@ -1,5 +1,5 @@
 -- +goose Up
-CREATE TABLE unit_dispatches IF NOT EXISTS (
+CREATE TABLE IF NOT EXISTS unit_dispatches (
     uuid UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     unit_of_work_uuid UUID NOT NULL,
     status TEXT NOT NULL DEFAULT 'pending',
