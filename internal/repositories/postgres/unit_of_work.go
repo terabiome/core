@@ -1,4 +1,4 @@
-package repositories
+package postgres
 
 import (
 	"context"
@@ -24,7 +24,13 @@ func (r *UnitOfWorkPostgresRepository) Create(ctx context.Context, uow models.Un
 		INSERT INTO units_of_work (name, status, config_json)
 		VALUES ($1, $2, $3)
 	`
-	if _, err := r.wrappedExec(ctx, nil, q, uow.Name, uow.Status, uow.ConfigJSON); err != nil {
+
+	tx, err := loadTxFromCtx(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to load transaction from ctx: %w", err)
+	}
+
+	if _, err := r.wrappedExec(ctx, tx, q, uow.Name, uow.Status, uow.ConfigJSON); err != nil {
 		return r.Errorf("failed to create unit-of-work: %w", err)
 	}
 
@@ -39,7 +45,12 @@ func (r *UnitOfWorkPostgresRepository) GetByStatus(ctx context.Context, status m
 		WHERE status = $1
 	`
 
-	rows, err := r.wrappedQuery(ctx, nil, q, status)
+	tx, err := loadTxFromCtx(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load transaction from ctx: %w", err)
+	}
+
+	rows, err := r.wrappedQuery(ctx, tx, q, status)
 	// smh this err is usually ignore, but good to check
 	if err != nil {
 		return nil, fmt.Errorf("failed to query units_of_work: %w", err)
@@ -48,28 +59,25 @@ func (r *UnitOfWorkPostgresRepository) GetByStatus(ctx context.Context, status m
 	// don't care about capacity, but a good heuristic is about 8 coz I like it
 	records := make([]models.UnitOfWork, 0, 8)
 
-	generator := func(out []models.UnitOfWork) func(pgx.Rows) error {
-		return func(r pgx.Rows) error {
-			for r.Next() {
-				var record models.UnitOfWork
-				subErr := r.Scan(
-					&record.UUID,
-					&record.Name,
-					&record.Status,
-					&record.ConfigJSON,
-					&record.CreatedAt,
-				)
-				if subErr != nil {
-					return subErr
-				}
-
-				out = append(out, record)
+	fn := func(tx pgx.Tx, r pgx.Rows) error {
+		for r.Next() {
+			var record models.UnitOfWork
+			subErr := r.Scan(
+				&record.UUID,
+				&record.Name,
+				&record.Status,
+				&record.ConfigJSON,
+				&record.CreatedAt,
+			)
+			if subErr != nil {
+				return subErr
 			}
-			return nil
-		}
-	}
 
-	if err := r.execScanCallback(rows, generator(records)); err != nil {
+			records = append(records, record)
+		}
+		return nil
+	}
+	if err := r.execScanCallback(tx, rows, fn); err != nil {
 		return nil, fmt.Errorf("failed to scan units_of_work: %w", err)
 	}
 
