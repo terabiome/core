@@ -39,5 +39,22 @@ func (r *basePostgresRepository) wrappedQuery(ctx context.Context, tx pgx.Tx, sq
 	return tx.Query(ctx, sql, arguments...)
 }
 
+// can use pgx.* but i don't like it, rawdogging [pgx.Rows] instead
+// no need to call [pgx.Rows.Close] or check [pgx.Rows.Err]
+func (r *basePostgresRepository) execScanCallback(rows pgx.Rows, callback func(pgx.Rows) error) error {
+	defer rows.Close()
+
+	if err := callback(rows); err != nil {
+		return fmt.Errorf("failed to scan, abort the set: %w", err)
+	}
+
+	// something is wrong and i don't like it
+	if rows.Err() != nil {
+		return fmt.Errorf("something went wrong when querying: %w", rows.Err())
+	}
+
+	return nil
+}
+
 // Ensure the repository satisfies the interface at compile time.
 // var _ [interface] = (*struct)(nil)
