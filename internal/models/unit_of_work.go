@@ -6,15 +6,22 @@ import (
 	"uuid"
 )
 
+type UnitOfWorkStatus string
+
+const (
+	UnitOfWorkStatusNew       UnitOfWorkStatus = "NEW"
+	UnitOfWorkStatusInitiated UnitOfWorkStatus = "INITIATED"
+	UnitOfWorkStatusCompleted UnitOfWorkStatus = "COMPLETED"
+	UnitOfWorkStatusFailed    UnitOfWorkStatus = "FAILED"
+)
+
 // UnitOfWork represents the master plan row.
 type UnitOfWork struct {
 	UUID       uuid.UUID
 	Name       string
-	Status     string
+	Status     UnitOfWorkStatus
 	ConfigJSON json.RawMessage
 	CreatedAt  time.Time
-	UpdatedAt  time.Time
-	FinishedAt *time.Time
 }
 
 // Dispatch represents a per-target assignment.
