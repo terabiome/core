@@ -13,8 +13,12 @@ type UnitOfWork struct {
 	uowRepository UnitOfWorkRepository
 }
 
-func NewUnitOfWork(uowRepo UnitOfWorkRepository) *UnitOfWork {
+func NewUnitOfWork(
+	txManager TransactionManager,
+	uowRepo UnitOfWorkRepository,
+) *UnitOfWork {
 	return &UnitOfWork{
+		baseService:   newBaseService(txManager),
 		uowRepository: uowRepo,
 	}
 }

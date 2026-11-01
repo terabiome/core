@@ -12,6 +12,11 @@ type UnitOfWorkRepository interface {
 	GetByStatus(ctx context.Context, status models.UnitOfWorkStatus) ([]models.UnitOfWork, error)
 }
 
+// orchestrate Repository call here, or whatever you like
+type TransactionManager interface {
+	Wrap(ctx context.Context, fn func(ctx context.Context) error) error
+}
+
 type ServiceLeaseRepository interface {
 	ClaimOrUpdate(ctx context.Context, agentID string, secretHash string, metadata map[string]any) error
 	UpdateHeartbeat(ctx context.Context, agentID string) error

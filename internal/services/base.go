@@ -5,6 +5,11 @@ import (
 )
 
 type baseService struct {
+	txManager TransactionManager
+}
+
+func newBaseService(txManager TransactionManager) baseService {
+	return baseService{txManager: txManager}
 }
 
 // shortcut for [fmt.Errorf], with prefix or something
