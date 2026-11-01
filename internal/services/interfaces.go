@@ -9,6 +9,7 @@ import (
 // Not wrapper around units_of_works table, but for all around "Unit of Works"
 type UnitOfWorkRepository interface {
 	Create(ctx context.Context, uow models.UnitOfWork) error
+	GetByStatus(ctx context.Context, status models.UnitOfWorkStatus) ([]models.UnitOfWork, error)
 }
 
 type ServiceLeaseRepository interface {
