@@ -30,7 +30,7 @@ func (m *TxManager) Wrap(ctx context.Context, fn func(ctx context.Context) error
 	if tx == nil {
 		tx, err = m.pool.Begin(ctx)
 		if err != nil {
-			return fmt.Errorf("failed to start a transaction: %w")
+			return fmt.Errorf("failed to start a transaction: %w", err)
 		}
 		defer tx.Rollback(ctx)
 
