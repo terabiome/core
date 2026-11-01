@@ -13,8 +13,10 @@ type UnitOfWork struct {
 	uowRepository UnitOfWorkRepository
 }
 
-func NewUnitOfWork() *UnitOfWork {
-	return &UnitOfWork{}
+func NewUnitOfWork(uowRepo UnitOfWorkRepository) *UnitOfWork {
+	return &UnitOfWork{
+		uowRepository: uowRepo,
+	}
 }
 
 func (s *UnitOfWork) Submit(ctx context.Context, uowContract yamlcontracts.UnitOfWork) error {

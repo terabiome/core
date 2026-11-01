@@ -36,7 +36,8 @@ func SetupMux() *Router {
 		writer.Write([]byte("OK"))
 	})
 
-	uowHandlers := httphandlers.NewUnitOfWork(services.NewUnitOfWork())
+	// TODO: wire the repository in here later
+	uowHandlers := httphandlers.NewUnitOfWork(services.NewUnitOfWork(nil))
 	router.ServeMux.Handle("/api/v1/", http.StripPrefix("/api/v1", router.V1Handler(
 		uowHandlers,
 	)))
