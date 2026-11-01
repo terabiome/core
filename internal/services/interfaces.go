@@ -4,12 +4,13 @@ import (
 	"context"
 
 	"github.com/terabiome/terabiome/internal/models"
+	"github.com/terabiome/terabiome/internal/repositories"
 )
 
 // Not wrapper around units_of_works table, but for all around "Unit of Works"
 type UnitOfWorkRepository interface {
 	Create(ctx context.Context, uow models.UnitOfWork) error
-	GetByStatus(ctx context.Context, status models.UnitOfWorkStatus) ([]models.UnitOfWork, error)
+	GetByStatus(ctx context.Context, status models.UnitOfWorkStatus, lockControlParameters repositories.LockControlParameters) ([]models.UnitOfWork, error)
 }
 
 // orchestrate Repository call here, or whatever you like

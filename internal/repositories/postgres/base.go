@@ -8,11 +8,11 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/terabiome/terabiome/internal/models"
+	"github.com/terabiome/terabiome/internal/repositories"
 )
 
 func loadTxFromCtx(ctx context.Context) (pgx.Tx, error) {
-	tx := ctx.Value(models.RepositoriesTxKey)
+	tx := ctx.Value(repositories.TxKey)
 	if tx == nil {
 		return nil, nil
 	}
@@ -30,7 +30,7 @@ func withTxInCtx(ctx context.Context, tx pgx.Tx) (context.Context, error) {
 		return ctx, errors.New("injecting nil tx, ignored")
 	}
 
-	return context.WithValue(ctx, models.RepositoriesTxKey, tx), nil
+	return context.WithValue(ctx, repositories.TxKey, tx), nil
 }
 
 // tx can be nil -> use [pgxpool.Pool] directly

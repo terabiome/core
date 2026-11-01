@@ -7,6 +7,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/terabiome/terabiome/internal/models"
+	"github.com/terabiome/terabiome/internal/repositories"
 )
 
 type UnitOfWorkPostgresRepository struct {
@@ -38,12 +39,33 @@ func (r *UnitOfWorkPostgresRepository) Create(ctx context.Context, uow models.Un
 }
 
 // GetByStatus fetches by status.
-func (r *UnitOfWorkPostgresRepository) GetByStatus(ctx context.Context, status models.UnitOfWorkStatus) ([]models.UnitOfWork, error) {
-	const q = `
+func (r *UnitOfWorkPostgresRepository) GetByStatus(ctx context.Context, status models.UnitOfWorkStatus, lockControlParameters repositories.LockControlParameters) ([]models.UnitOfWork, error) {
+	const baseQ = `
 		SELECT uuid, name, status, config_json, created_at
 		FROM units_of_work
 		WHERE status = $1
 	`
+
+	var q string = baseQ
+
+	// can move to generic method
+	switch lockControlParameters.Type {
+	case repositories.LockTypeLockForUpdate:
+		q = fmt.Sprintf("%s FOR UPDATE", q)
+	case repositories.LockTypeLockForNoKeyUpdate:
+		q = fmt.Sprintf("%s FOR NO KEY UPDATE", q)
+	case repositories.LockTypeNoLock:
+	default:
+		return nil, fmt.Errorf("invalid lock type: %s", lockControlParameters.Type)
+	}
+
+	// default would do nothing, as expected
+	switch lockControlParameters.Behavior {
+	case repositories.CascadeBehaviorNoWait:
+		q = fmt.Sprintf("%s NOWAIT", q)
+	case repositories.CascadeBehaviorSkipLocked:
+		q = fmt.Sprintf("%s SKIP LOCKED", q)
+	}
 
 	tx, err := loadTxFromCtx(ctx)
 	if err != nil {

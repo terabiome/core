@@ -1,11 +1,5 @@
 package models
 
-type txKeyType string
-
-const (
-	RepositoriesTxKey txKeyType = "repositories.tx_key"
-)
-
 type LeaseType string
 
 const (
