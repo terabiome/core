@@ -31,7 +31,6 @@ func (s *UnitOfWork) Submit(ctx context.Context, uowContract yamlcontracts.UnitO
 
 	uow := models.UnitOfWork{
 		Name:       uowContract.Name,
-		Status:     models.UnitOfWorkStatusNew,
 		ConfigJSON: uowBytes,
 	}
 

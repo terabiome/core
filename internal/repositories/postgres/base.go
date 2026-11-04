@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -31,6 +33,73 @@ func withTxInCtx(ctx context.Context, tx pgx.Tx) (context.Context, error) {
 	}
 
 	return context.WithValue(ctx, repositories.TxKey, tx), nil
+}
+
+func transformSelectQuery(
+	baseQ string,
+	queryParameters repositories.QueryParameters,
+	lockControlParameters repositories.LockControlParameters,
+) (string, error) {
+	var q string = baseQ
+
+	re, err := regexp.Compile("^[a-zA-Z][a-zA-Z0-9_]*")
+	if err != nil {
+		return "", fmt.Errorf("invalid [ORDER BY] field pattern: %w", err)
+	}
+
+	orderFields := make([]string, 0, len(queryParameters.SortBy))
+	for _, sortBy := range queryParameters.SortBy {
+		if !re.MatchString(sortBy.Name) {
+			err = errors.Join(err, fmt.Errorf("name does not match pattern: %s", sortBy.Name))
+			continue
+		}
+
+		switch string(sortBy.Order) {
+		case string(repositories.SortOrderAscending):
+		case string(repositories.SortOrderDescending):
+		case "":
+			sortBy.Order = repositories.SortOrderAscending
+		default:
+			err = errors.Join(err, fmt.Errorf("sort order does not match pattern: %s %s", sortBy.Name, sortBy.Order))
+			continue
+		}
+
+		orderFields = append(orderFields, fmt.Sprintf("%s %s", sortBy.Name, sortBy.Order))
+	}
+	if err != nil {
+		return "", fmt.Errorf("invalid [ORDER BY] field pattern: %w", err)
+	}
+	if len(orderFields) > 0 {
+		q = fmt.Sprintf("%s ORDER BY %s", q, strings.Join(orderFields, ", "))
+	}
+
+	if queryParameters.Limit > 0 {
+		q = fmt.Sprintf("%s LIMIT %d", queryParameters.Limit)
+	}
+	if queryParameters.Offset > 0 {
+		q = fmt.Sprintf("%s OFFSET %d", queryParameters.Limit)
+	}
+
+	// can move to generic method
+	switch lockControlParameters.Type {
+	case repositories.LockTypeLockForUpdate:
+		q = fmt.Sprintf("%s FOR UPDATE", q)
+	case repositories.LockTypeLockForNoKeyUpdate:
+		q = fmt.Sprintf("%s FOR NO KEY UPDATE", q)
+	case repositories.LockTypeNoLock:
+	default:
+		return "", fmt.Errorf("invalid lock type: %s", lockControlParameters.Type)
+	}
+
+	// default would do nothing, as expected
+	switch lockControlParameters.Behavior {
+	case repositories.CascadeBehaviorNoWait:
+		q = fmt.Sprintf("%s NOWAIT", q)
+	case repositories.CascadeBehaviorSkipLocked:
+		q = fmt.Sprintf("%s SKIP LOCKED", q)
+	}
+
+	return q, nil
 }
 
 // tx can be nil -> use [pgxpool.Pool] directly

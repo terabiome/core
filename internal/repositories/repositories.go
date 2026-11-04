@@ -25,3 +25,21 @@ type LockControlParameters struct {
 	Type     LockType
 	Behavior CascadeBehavior
 }
+
+type QueryParameters struct {
+	SortBy []SortField
+	Limit  int
+	Offset int
+}
+
+type SortField struct {
+	Name  string
+	Order SortOrder
+}
+
+type SortOrder string
+
+const (
+	SortOrderAscending  SortOrder = "ASC"
+	SortOrderDescending SortOrder = "DESC"
+)

@@ -22,8 +22,8 @@ func NewUnitOfWorkPostgresRepository(pool *pgxpool.Pool) *UnitOfWorkPostgresRepo
 // Create creates just an UOW record.
 func (r *UnitOfWorkPostgresRepository) Create(ctx context.Context, uow models.UnitOfWork) error {
 	const q = `
-		INSERT INTO units_of_work (name, status, config_json)
-		VALUES ($1, $2, $3)
+		INSERT INTO units_of_work (name, config_json)
+		VALUES ($1, $2)
 	`
 
 	tx, err := loadTxFromCtx(ctx)
@@ -31,40 +31,22 @@ func (r *UnitOfWorkPostgresRepository) Create(ctx context.Context, uow models.Un
 		return fmt.Errorf("failed to load transaction from ctx: %w", err)
 	}
 
-	if _, err := r.wrappedExec(ctx, tx, q, uow.Name, uow.Status, uow.ConfigJSON); err != nil {
+	if _, err := r.wrappedExec(ctx, tx, q, uow.Name, uow.ConfigJSON); err != nil {
 		return r.Errorf("failed to create unit-of-work: %w", err)
 	}
 
 	return nil
 }
 
-// GetByStatus fetches by status.
-func (r *UnitOfWorkPostgresRepository) GetByStatus(ctx context.Context, status models.UnitOfWorkStatus, lockControlParameters repositories.LockControlParameters) ([]models.UnitOfWork, error) {
+func (r *UnitOfWorkPostgresRepository) FilterByUnstaged(ctx context.Context, queryParameters repositories.QueryParameters, lockControlParameters repositories.LockControlParameters) ([]models.UnitOfWork, error) {
 	const baseQ = `
-		SELECT uuid, name, status, config_json, created_at
+		SELECT uuid, name, config_json, created_at, staged_at
 		FROM units_of_work
-		WHERE status = $1
+		WHERE staged_at IS NULL
 	`
-
-	var q string = baseQ
-
-	// can move to generic method
-	switch lockControlParameters.Type {
-	case repositories.LockTypeLockForUpdate:
-		q = fmt.Sprintf("%s FOR UPDATE", q)
-	case repositories.LockTypeLockForNoKeyUpdate:
-		q = fmt.Sprintf("%s FOR NO KEY UPDATE", q)
-	case repositories.LockTypeNoLock:
-	default:
-		return nil, fmt.Errorf("invalid lock type: %s", lockControlParameters.Type)
-	}
-
-	// default would do nothing, as expected
-	switch lockControlParameters.Behavior {
-	case repositories.CascadeBehaviorNoWait:
-		q = fmt.Sprintf("%s NOWAIT", q)
-	case repositories.CascadeBehaviorSkipLocked:
-		q = fmt.Sprintf("%s SKIP LOCKED", q)
+	q, err := transformSelectQuery(baseQ, queryParameters, lockControlParameters)
+	if err != nil {
+		return nil, fmt.Errorf("failed to transform [SELECT] query: %w", err)
 	}
 
 	tx, err := loadTxFromCtx(ctx)
@@ -72,7 +54,7 @@ func (r *UnitOfWorkPostgresRepository) GetByStatus(ctx context.Context, status m
 		return nil, fmt.Errorf("failed to load transaction from ctx: %w", err)
 	}
 
-	rows, err := r.wrappedQuery(ctx, tx, q, status)
+	rows, err := r.wrappedQuery(ctx, tx, q)
 	// smh this err is usually ignore, but good to check
 	if err != nil {
 		return nil, fmt.Errorf("failed to query units_of_work: %w", err)
@@ -87,9 +69,9 @@ func (r *UnitOfWorkPostgresRepository) GetByStatus(ctx context.Context, status m
 			subErr := r.Scan(
 				&record.UUID,
 				&record.Name,
-				&record.Status,
 				&record.ConfigJSON,
 				&record.CreatedAt,
+				&record.StagedAt,
 			)
 			if subErr != nil {
 				return subErr
@@ -105,8 +87,6 @@ func (r *UnitOfWorkPostgresRepository) GetByStatus(ctx context.Context, status m
 
 	return records, nil
 }
-
-// --- Private SQL Helpers ---
 
 // Ensure the repository satisfies the interface at compile time.
 // var _ [interface] = (*struct)(nil)
