@@ -5,9 +5,10 @@ CREATE TABLE IF NOT EXISTS dispatch_event_logs (
     event_type TEXT NOT NULL,
     metadata JSONB NOT NULL DEFAULT '{}'::jsonb, -- e.g. task pos/name, sequence pos/name, etc
     data JSONB NOT NULL,
+    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW(),
     generated_at TIMESTAMP WITHOUT TIME ZONE,
-    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()
+    committed_at TIMESTAMP WITHOUT TIME ZONE
 );
 
 -- +goose Down
-DROP TABLE IF NOT EXISTS dispatch_event_logs;
+DROP TABLE IF EXISTS dispatch_event_logs;
