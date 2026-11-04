@@ -42,7 +42,7 @@ func transformSelectQuery(
 ) (string, error) {
 	var q string = baseQ
 
-	re, err := regexp.Compile("^[a-zA-Z][a-zA-Z0-9_]*")
+	re, err := regexp.Compile("^[a-zA-Z][.]{0,1}[a-zA-Z0-9_]*")
 	if err != nil {
 		return "", fmt.Errorf("invalid [ORDER BY] field pattern: %w", err)
 	}
