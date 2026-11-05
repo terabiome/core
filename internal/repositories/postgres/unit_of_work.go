@@ -38,6 +38,28 @@ func (r *UnitOfWorkPostgresRepository) Create(ctx context.Context, uow models.Un
 	return nil
 }
 
+func (r *UnitOfWorkPostgresRepository) UpdateByUUID(ctx context.Context, uow models.UnitOfWork) error {
+	const q = `
+		UPDATE units_of_work
+		SET
+			name = $2,
+			config_json = $3,
+			staged_at = $4
+		WHERE uuid = $1
+	`
+
+	tx, err := loadTxFromCtx(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to load transaction from ctx: %w", err)
+	}
+
+	if _, err := r.wrappedExec(ctx, tx, q, uow.UUID, uow.Name, uow.ConfigJSON, uow.StagedAt); err != nil {
+		return r.Errorf("failed to update unit-of-work: %w", err)
+	}
+
+	return nil
+}
+
 func (r *UnitOfWorkPostgresRepository) FilterByUnstaged(ctx context.Context, queryParameters repositories.QueryParameters, lockControlParameters repositories.LockControlParameters) ([]models.UnitOfWork, error) {
 	const baseQ = `
 		SELECT uuid, name, config_json, created_at, staged_at

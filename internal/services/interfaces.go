@@ -11,6 +11,7 @@ import (
 type UnitOfWorkRepository interface {
 	Create(ctx context.Context, uow models.UnitOfWork) error
 	FilterByUnstaged(ctx context.Context, queryParameters repositories.QueryParameters, lockControlParameters repositories.LockControlParameters) ([]models.UnitOfWork, error)
+	UpdateByUUID(ctx context.Context, uow models.UnitOfWork) error
 }
 
 // orchestrate Repository call here, or whatever you like
