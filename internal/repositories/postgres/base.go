@@ -35,6 +35,7 @@ func withTxInCtx(ctx context.Context, tx pgx.Tx) (context.Context, error) {
 	return context.WithValue(ctx, repositories.TxKey, tx), nil
 }
 
+// trust the SELECT base query
 func transformSelectQuery(
 	baseQ string,
 	queryParameters repositories.QueryParameters,
@@ -74,10 +75,10 @@ func transformSelectQuery(
 	}
 
 	if queryParameters.Limit > 0 {
-		q = fmt.Sprintf("%s LIMIT %d", queryParameters.Limit)
+		q = fmt.Sprintf("%s LIMIT %d", q, queryParameters.Limit)
 	}
 	if queryParameters.Offset > 0 {
-		q = fmt.Sprintf("%s OFFSET %d", queryParameters.Limit)
+		q = fmt.Sprintf("%s OFFSET %d", q, queryParameters.Offset)
 	}
 
 	// can move to generic method
