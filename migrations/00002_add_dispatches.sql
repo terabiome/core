@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS dispatches (
     target JSONB DEFAULT '{}'::jsonb, -- target routing, topic, etc, matching attributes, etc
     metadata JSONB DEFAULT '{}'::jsonb, -- NATS topic, status transition, etc
     payload JSONB NOT NULL, -- transformed sequences, ordered by group + other stuffs
-    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- +goose Down
