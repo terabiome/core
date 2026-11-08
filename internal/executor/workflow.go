@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"sync"
 
-	yamlcontracts "github.com/terabiome/terabiome/internal/contracts/yaml"
-	"github.com/terabiome/terabiome/internal/operations"
+	yamlcontracts "github.com/terabiome/core/internal/contracts/yaml"
+	"github.com/terabiome/core/internal/operations"
 )
 
 // WorkflowExecutor handles the top-level coordination of a UnitOfWork.

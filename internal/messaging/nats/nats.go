@@ -6,8 +6,8 @@ import (
 
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
-	"github.com/terabiome/terabiome/internal/messaging"
-	"github.com/terabiome/terabiome/pkg/logging"
+	"github.com/terabiome/core/internal/messaging"
+	"github.com/terabiome/core/pkg/logging"
 )
 
 type NATSJetstream struct {

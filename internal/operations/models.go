@@ -1,9 +1,9 @@
 package operations
 
 import (
-	"github.com/terabiome/terabiome/internal/models"
-	"github.com/terabiome/terabiome/internal/writers"
-	shellexecutors "github.com/terabiome/terabiome/pkg/executors/shell"
+	"github.com/terabiome/core/internal/models"
+	"github.com/terabiome/core/internal/writers"
+	shellexecutors "github.com/terabiome/core/pkg/executors/shell"
 )
 
 type OperationName string

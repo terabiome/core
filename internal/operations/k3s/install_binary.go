@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 
 	"github.com/go-viper/mapstructure/v2"
-	"github.com/terabiome/terabiome/internal/operations"
+	"github.com/terabiome/core/internal/operations"
 )
 
 type InstallBinaryOperation struct {

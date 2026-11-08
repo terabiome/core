@@ -5,14 +5,14 @@ import (
 	"runtime"
 	"time"
 
-	yamlcontracts "github.com/terabiome/terabiome/internal/contracts/yaml"
-	"github.com/terabiome/terabiome/internal/executor"
-	"github.com/terabiome/terabiome/internal/writers"
+	yamlcontracts "github.com/terabiome/core/internal/contracts/yaml"
+	"github.com/terabiome/core/internal/executor"
+	"github.com/terabiome/core/internal/writers"
 
-	"github.com/terabiome/terabiome/internal/models"
-	"github.com/terabiome/terabiome/internal/operations"
-	shellexecutors "github.com/terabiome/terabiome/pkg/executors/shell"
-	loggingpkg "github.com/terabiome/terabiome/pkg/logging"
+	"github.com/terabiome/core/internal/models"
+	"github.com/terabiome/core/internal/operations"
+	shellexecutors "github.com/terabiome/core/pkg/executors/shell"
+	loggingpkg "github.com/terabiome/core/pkg/logging"
 )
 
 type ShellRunner struct {

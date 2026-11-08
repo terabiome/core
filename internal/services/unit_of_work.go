@@ -3,8 +3,8 @@ package services
 import (
 	"context"
 
-	yamlcontracts "github.com/terabiome/terabiome/internal/contracts/yaml"
-	"github.com/terabiome/terabiome/internal/models"
+	yamlcontracts "github.com/terabiome/core/internal/contracts/yaml"
+	"github.com/terabiome/core/internal/models"
 	"go.yaml.in/yaml/v4"
 )
 

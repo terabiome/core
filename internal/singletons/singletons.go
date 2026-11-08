@@ -3,8 +3,8 @@ package singletons
 import (
 	"log"
 
-	"github.com/terabiome/terabiome/internal/config"
-	"github.com/terabiome/terabiome/pkg/logging"
+	"github.com/terabiome/core/internal/config"
+	"github.com/terabiome/core/pkg/logging"
 )
 
 type Singletons struct {

@@ -4,9 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"time"
 
-	"github.com/terabiome/terabiome/internal/repositories"
+	yamlcontracts "github.com/terabiome/core/internal/contracts/yaml"
+	"github.com/terabiome/core/internal/models"
+	"github.com/terabiome/core/internal/repositories"
+	"go.yaml.in/yaml/v4"
 )
 
 type Dispatch struct {
@@ -43,6 +47,11 @@ func (s *Dispatch) Stage(ctx context.Context, limit int) error {
 		// something else
 		for _, uow := range uows {
 			// TODO: fetch something and create "dispatch" record
+			var uowYAML yamlcontracts.UnitOfWork
+			if subErr := yaml.Unmarshal(uow.Config, &uowYAML); subErr != nil {
+				err = errors.Join(err, fmt.Errorf("failed to load YAML config of unit-of-work uuid=%s: %w", uow.UUID, subErr))
+				continue
+			}
 			// question: do we resolve targets and place it in dispatch data?
 			// design:
 			// - 1 dispatch is swept later, set dispatched_at = [time.Now]
@@ -52,12 +61,15 @@ func (s *Dispatch) Stage(ctx context.Context, limit int) error {
 			uow.StagedAt = time.Now().UTC()
 			if subErr := s.uowRepository.UpdateByUUID(ctx, uow); subErr != nil {
 				err = errors.Join(err, fmt.Errorf("failed to update uow uuid=%s: %w", uow.UUID, subErr))
+				continue
 			}
 		}
 
-		// throw here
+		// commit since partial failure is acceptable
+		// as long as we don't write anything and let the next loop attempt to reconcile
+
 		if err != nil {
-			return fmt.Errorf("failed to update uows, rolling back: %w", err)
+			log.Printf("encountered error updating uows, do partial commit anyway: %v\n", err)
 		}
 
 		return nil

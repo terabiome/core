@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	yamlcontracts "github.com/terabiome/terabiome/internal/contracts/yaml"
-	"github.com/terabiome/terabiome/internal/operations"
-	"github.com/terabiome/terabiome/internal/registry"
+	yamlcontracts "github.com/terabiome/core/internal/contracts/yaml"
+	"github.com/terabiome/core/internal/operations"
+	"github.com/terabiome/core/internal/registry"
 )
 
 // SequenceExecutor is an intrinsic block that executes a single sequence of tasks.

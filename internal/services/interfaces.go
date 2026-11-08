@@ -3,8 +3,8 @@ package services
 import (
 	"context"
 
-	"github.com/terabiome/terabiome/internal/models"
-	"github.com/terabiome/terabiome/internal/repositories"
+	"github.com/terabiome/core/internal/models"
+	"github.com/terabiome/core/internal/repositories"
 )
 
 // Not wrapper around units_of_works table, but for all around "Unit of Works"

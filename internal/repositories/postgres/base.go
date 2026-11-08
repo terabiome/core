@@ -10,7 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/terabiome/terabiome/internal/repositories"
+	"github.com/terabiome/core/internal/repositories"
 )
 
 func loadTxFromCtx(ctx context.Context) (pgx.Tx, error) {

@@ -6,8 +6,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/terabiome/terabiome/internal/models"
-	"github.com/terabiome/terabiome/internal/repositories"
+	"github.com/terabiome/core/internal/models"
+	"github.com/terabiome/core/internal/repositories"
 )
 
 type UnitOfWorkPostgresRepository struct {

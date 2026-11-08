@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"github.com/go-viper/mapstructure/v2"
-	"github.com/terabiome/terabiome/internal/operations"
-	shellexecutors "github.com/terabiome/terabiome/pkg/executors/shell"
+	"github.com/terabiome/core/internal/operations"
+	shellexecutors "github.com/terabiome/core/pkg/executors/shell"
 )
 
 var whitelistedCommands = map[string][]regexp.Regexp{

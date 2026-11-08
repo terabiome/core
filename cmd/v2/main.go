@@ -12,10 +12,10 @@ import (
 	"syscall"
 
 	"github.com/go-playground/validator/v10"
-	yamlcontracts "github.com/terabiome/terabiome/internal/contracts/yaml"
-	"github.com/terabiome/terabiome/internal/runner"
-	"github.com/terabiome/terabiome/internal/singletons"
-	"github.com/terabiome/terabiome/pkg/logging"
+	yamlcontracts "github.com/terabiome/core/internal/contracts/yaml"
+	"github.com/terabiome/core/internal/runner"
+	"github.com/terabiome/core/internal/singletons"
+	"github.com/terabiome/core/pkg/logging"
 	"go.yaml.in/yaml/v4"
 )
 

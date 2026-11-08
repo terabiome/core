@@ -1,4 +1,4 @@
-module github.com/terabiome/terabiome
+module github.com/terabiome/core
 
 go 1.27.1
 

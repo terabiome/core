@@ -3,7 +3,7 @@ package runner
 import (
 	"context"
 
-	yamlcontracts "github.com/terabiome/terabiome/internal/contracts/yaml"
+	yamlcontracts "github.com/terabiome/core/internal/contracts/yaml"
 )
 
 type WorkflowService interface {

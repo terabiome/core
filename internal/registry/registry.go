@@ -3,11 +3,11 @@ package registry
 import (
 	"fmt"
 
-	"github.com/terabiome/terabiome/internal/operations"
-	k3soperations "github.com/terabiome/terabiome/internal/operations/k3s"
-	kerneloperations "github.com/terabiome/terabiome/internal/operations/kernel"
-	shelloperations "github.com/terabiome/terabiome/internal/operations/shell"
-	systemdoperations "github.com/terabiome/terabiome/internal/operations/systemd"
+	"github.com/terabiome/core/internal/operations"
+	k3soperations "github.com/terabiome/core/internal/operations/k3s"
+	kerneloperations "github.com/terabiome/core/internal/operations/kernel"
+	shelloperations "github.com/terabiome/core/internal/operations/shell"
+	systemdoperations "github.com/terabiome/core/internal/operations/systemd"
 )
 
 var registry = OperationRegistry{

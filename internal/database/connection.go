@@ -8,7 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/terabiome/terabiome/internal/config"
+	"github.com/terabiome/core/internal/config"
 )
 
 type ConnectionType string
