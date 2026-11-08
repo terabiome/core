@@ -40,5 +40,9 @@ func (m *TxManager) Wrap(ctx context.Context, fn func(ctx context.Context) error
 		}
 	}
 
-	return fn(txCtx)
+	if err := fn(txCtx); err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
 }
