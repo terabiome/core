@@ -2,7 +2,6 @@ package runner
 
 import (
 	"context"
-	"fmt"
 	"runtime"
 	"time"
 
@@ -17,17 +16,14 @@ import (
 )
 
 type ShellRunner struct {
-	logger          loggingpkg.Logger
-	workflowService WorkflowService
+	logger loggingpkg.Logger
 }
 
 func NewShellRunner(
 	logger loggingpkg.Logger,
-	workflowService WorkflowService,
 ) *ShellRunner {
 	return &ShellRunner{
-		logger:          logger,
-		workflowService: workflowService,
+		logger: logger,
 	}
 }
 
@@ -54,14 +50,9 @@ func (r *ShellRunner) Run(ctx context.Context, uow yamlcontracts.UnitOfWork) err
 	}
 
 	// 2. Execute using Intrinsic
-	batches, err := r.workflowService.PrepareExecutionPlan(ctx, uow)
-	if err != nil {
-		return fmt.Errorf("failed to prepare execution plan: %w", err)
-	}
 	wfExec := executor.NewWorkflowExecutor(env)
-
 	r.logger.InfoContext(ctx, "Starting local execution...")
-	return wfExec.Execute(ctx, batches)
+	return wfExec.ExecuteAsDAG(ctx, uow.Sequences)
 }
 
 func (r *ShellRunner) probeNode() models.NodeInfo {

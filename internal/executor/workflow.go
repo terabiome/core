@@ -11,11 +11,69 @@ import (
 
 // WorkflowExecutor handles the top-level coordination of a UnitOfWork.
 type WorkflowExecutor struct {
-	env *operations.OperationEnvironment
+	env               *operations.OperationEnvironment
+	concurrency       int
+	concurrencyFactor int
 }
 
 func NewWorkflowExecutor(env *operations.OperationEnvironment) *WorkflowExecutor {
-	return &WorkflowExecutor{env: env}
+	return &WorkflowExecutor{
+		env:               env,
+		concurrency:       0,
+		concurrencyFactor: 4,
+	}
+}
+
+// Run in concurrent at best effort
+func (w *WorkflowExecutor) ExecuteAsDAG(ctx context.Context, seqs []yamlcontracts.UnitOfWorkSequence) error {
+	// atp, the sequence slice is guarantee to form a DAG
+	var (
+		stagedSequences        = make(map[string]yamlcontracts.UnitOfWorkSequence, len(seqs))
+		completedSequenceNames = make(map[string]bool, len(seqs))
+	)
+
+	for _, seq := range seqs {
+		stagedSequences[seq.Name] = seq
+	}
+
+	var (
+		errChan = make(chan error, len(seqs))
+		wg      = sync.WaitGroup{}
+	)
+	// sweep
+	for len(completedSequenceNames) != len(seqs) && len(stagedSequences) != 0 {
+		for _, stagedSequence := range stagedSequences {
+			// just to make sure
+			if _, ok := completedSequenceNames[stagedSequence.Name]; ok {
+				delete(stagedSequences, stagedSequence.Name)
+				continue
+			}
+			// check if sequence's dependencies are COMPLETED, else skip
+			for _, dependencySequenceName := range stagedSequence.DependsOn {
+				if _, ok := completedSequenceNames[dependencySequenceName]; !ok {
+					continue
+				}
+			}
+			// must not dispatch more than <concurrencyFactor>
+			if w.concurrency >= w.concurrencyFactor {
+				continue
+			}
+
+			// enlist for military duty
+			wg.Add(1)
+			w.concurrency++
+			go func() {
+				defer wg.Done()
+				// Reuse our SequenceExecutor intrinsic
+				errChan <- NewSequenceExecutor(w.env).Execute(ctx, stagedSequence)
+				w.concurrency--
+				completedSequenceNames[stagedSequence.Name] = true
+				delete(stagedSequences, stagedSequence.Name)
+			}()
+		}
+	}
+
+	return nil
 }
 
 // Execute takes pre-sorted batches and runs them.

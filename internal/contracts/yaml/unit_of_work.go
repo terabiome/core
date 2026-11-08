@@ -24,7 +24,6 @@ const (
 
 // UnitOfWork is root of YAML manifest for dispatching works.
 type UnitOfWork struct {
-	ID        string               `yaml:"id"`
 	Name      string               `yaml:"name" validate:"required,min=3,max=100"`
 	Strategy  UnitOfWorkStrategy   `yaml:"strategy" validate:"required"`
 	Targets   []UnitOfWorkTarget   `yaml:"targets" validate:"required,min=1,dive,required"` // ['*'] means for all available ones
@@ -40,8 +39,6 @@ type UnitOfWorkTarget struct {
 
 // UnitOfWorkSequence is part of UnitOfWork, representing logical grouping of linear execution steps.
 type UnitOfWorkSequence struct {
-	ID        string           `yaml:"id"`
-	BatchID   int              `yaml:"batch_id"`
 	Name      string           `yaml:"name" validate:"required,alphanum,min=3,max=50"`
 	DependsOn []string         `yaml:"depends_on" validate:"dive,required,alphanum"` // must not contain names of another dependent sequence, else fatal
 	Steps     []UnitOfWorkStep `yaml:"steps" validate:"required,min=1,dive"`
@@ -53,21 +50,9 @@ func (s UnitOfWorkSequence) IsIndependent() bool {
 
 // UnitOfWorkStep is part of UnitOfWorkSequence, representing the smallest unit of execution.
 type UnitOfWorkStep struct {
-	ID         string         `yaml:"id"`
 	Name       string         `yaml:"name" validate:"required,alphanum,min=3,max=50"`
 	IsAsync    bool           `yaml:"is_async"` // false by default, unsupported as of now
 	Parameters map[string]any `yaml:"parameters"`
-}
-
-type UnitOfWorkSequenceDependencyGraph struct {
-	// map{idx_of_dependant}map{idx_of_dependency}
-	FirstDegreeGraph map[string]map[string]struct{}
-	Violations       UnitOfWorkSequenceDependencyGraphViolations
-}
-
-type UnitOfWorkSequenceDependencyGraphViolations struct {
-	NonFlatSuperstructure  map[string][]string
-	FirstDegreeCircularity map[string][]string
 }
 
 func (u UnitOfWork) Validate(validator *validator.Validate) error {
@@ -98,73 +83,53 @@ func (u UnitOfWork) Validate(validator *validator.Validate) error {
 		err = errors.Join(err, fmt.Errorf("duplicated name: %s", strings.Join(msgSegments, ",")))
 	}
 
-	// flat superstructure + no 1st-degree circularity (flat superstructure is superset rule of 1st-degree circularity)
-	graph := u.GetSequenceDependencyGraph()
-
-	if len(graph.Violations.NonFlatSuperstructure) > 0 {
-		err = errors.Join(err, fmt.Errorf("non-flat superstructure violations: %v", graph.Violations.NonFlatSuperstructure))
-	}
-
-	if len(graph.Violations.FirstDegreeCircularity) > 0 {
-		err = errors.Join(err, fmt.Errorf("circular dependencies detected: %v", graph.Violations.FirstDegreeCircularity))
+	if u.CheckCircularity() {
+		err = errors.Join(err, errors.New("cycle detected"))
 	}
 
 	return err
 }
 
 // GetSequenceDependencyGraph ...
-func (u UnitOfWork) GetSequenceDependencyGraph() UnitOfWorkSequenceDependencyGraph {
-	sortedSequences := u.GetSortedSequences()
-
+func (u UnitOfWork) CheckCircularity() bool {
 	// N keys: include ones without dependant.
 	// map{idx_of_dependant}map{idx_of_dependency}
-	firstDegreeGraph := make(map[string]map[string]struct{}, len(sortedSequences))
+	directedAdjacencyGraph := make(map[string]map[string]struct{}, len(u.Sequences))
+
+	var (
+		dependentQueue   = make([]string, 0)
+		sortedDependents = make([]string, 0, len(u.Sequences))
+	)
 
 	// atp sequences' name are verified to be unique, can be used as graph key to detect circularity
-	for _, seq := range sortedSequences {
-		firstDegreeGraph[seq.Name] = make(map[string]struct{}, len(seq.DependsOn))
-		for _, name := range seq.DependsOn {
-			firstDegreeGraph[seq.Name][name] = struct{}{}
+	for _, seq := range u.Sequences {
+		dependantName := seq.Name
+		if len(seq.DependsOn) == 0 {
+			dependentQueue = append(dependentQueue, dependantName)
+			continue
+		}
+
+		directedAdjacencyGraph[dependantName] = make(map[string]struct{}, len(seq.DependsOn))
+		for _, dependencyName := range seq.DependsOn {
+			directedAdjacencyGraph[dependantName][dependencyName] = struct{}{}
 		}
 	}
 
-	nonFlatSuperstructureViolations := map[string][]string{}
-	firstDegreeCircularityViolations := map[string][]string{}
+	for len(dependentQueue) > 0 {
+		target := dependentQueue[0]
+		dependentQueue = dependentQueue[1:]
+		sortedDependents = append(sortedDependents, target)
 
-	for _, seq := range sortedSequences {
-		// already past independent sequences
-		if len(seq.DependsOn) > 0 {
-			// A -> {}, B -> {}, C -> {}
-			// D -> {A, B}, E -> {D} -> dead
-			// D -> {E}, E -> {A} -> dead (how to detect this?)
-			// D -> {E}, E -> {D} -> dead (how to detect this?)
-			for _, dependencyName := range seq.DependsOn { // {E}
-				// (1) if E has dependencies -> violate <flat superstructure rule>
-				if len(firstDegreeGraph[dependencyName]) == 0 {
-					continue
-				}
-				if _, ok := nonFlatSuperstructureViolations[seq.Name]; !ok {
-					nonFlatSuperstructureViolations[seq.Name] = []string{}
-				}
-				nonFlatSuperstructureViolations[seq.Name] = append(nonFlatSuperstructureViolations[seq.Name], dependencyName)
-				// (1.1) if it points back to D -> violate <non circularity rule> (this only applies for 1st-degree connection)
-				if _, ok := firstDegreeCircularityViolations[seq.Name]; !ok {
-					firstDegreeCircularityViolations[seq.Name] = []string{}
-				}
-				if _, ok := firstDegreeGraph[dependencyName][seq.Name]; ok {
-					firstDegreeCircularityViolations[seq.Name] = append(firstDegreeCircularityViolations[seq.Name], dependencyName)
-				}
+		// look up occurences
+		for dependant := range directedAdjacencyGraph {
+			delete(directedAdjacencyGraph[dependant], target)
+			if len(directedAdjacencyGraph[dependant]) == 0 {
+				dependentQueue = append(dependentQueue, dependant)
 			}
 		}
 	}
 
-	return UnitOfWorkSequenceDependencyGraph{
-		FirstDegreeGraph: firstDegreeGraph,
-		Violations: UnitOfWorkSequenceDependencyGraphViolations{
-			NonFlatSuperstructure:  nonFlatSuperstructureViolations,
-			FirstDegreeCircularity: firstDegreeCircularityViolations,
-		},
-	}
+	return len(u.Sequences) == len(sortedDependents)
 }
 
 // GetSortedSequences returns copy of Sequences sorted by number of dependencies.

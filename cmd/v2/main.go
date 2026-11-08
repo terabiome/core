@@ -96,7 +96,6 @@ func processShellSubcommand(ctx context.Context, shellInput shellCLIInput) error
 
 	shellRunner := runner.NewShellRunner(
 		logging.GetGlobalSlogger(),
-		singletons.GetWorkflowService(),
 	)
 
 	if shellRunner == nil {
