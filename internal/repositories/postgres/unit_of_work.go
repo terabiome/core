@@ -22,7 +22,7 @@ func NewUnitOfWorkPostgresRepository(pool *pgxpool.Pool) *UnitOfWorkPostgresRepo
 // Create creates just an UOW record.
 func (r *UnitOfWorkPostgresRepository) Create(ctx context.Context, uow models.UnitOfWork) error {
 	const q = `
-		INSERT INTO units_of_work (name, config_json)
+		INSERT INTO units_of_work (name, config)
 		VALUES ($1, $2)
 	`
 
@@ -31,7 +31,7 @@ func (r *UnitOfWorkPostgresRepository) Create(ctx context.Context, uow models.Un
 		return fmt.Errorf("failed to load transaction from ctx: %w", err)
 	}
 
-	if _, err := r.wrappedExec(ctx, tx, q, uow.Name, uow.ConfigJSON); err != nil {
+	if _, err := r.wrappedExec(ctx, tx, q, uow.Name, uow.Config); err != nil {
 		return r.Errorf("failed to create unit-of-work: %w", err)
 	}
 
@@ -43,7 +43,7 @@ func (r *UnitOfWorkPostgresRepository) UpdateByUUID(ctx context.Context, uow mod
 		UPDATE units_of_work
 		SET
 			name = $2,
-			config_json = $3,
+			config = $3,
 			staged_at = $4
 		WHERE uuid = $1
 	`
@@ -53,7 +53,7 @@ func (r *UnitOfWorkPostgresRepository) UpdateByUUID(ctx context.Context, uow mod
 		return fmt.Errorf("failed to load transaction from ctx: %w", err)
 	}
 
-	if _, err := r.wrappedExec(ctx, tx, q, uow.UUID, uow.Name, uow.ConfigJSON, uow.StagedAt); err != nil {
+	if _, err := r.wrappedExec(ctx, tx, q, uow.UUID, uow.Name, uow.Config, uow.StagedAt); err != nil {
 		return r.Errorf("failed to update unit-of-work: %w", err)
 	}
 
@@ -62,7 +62,7 @@ func (r *UnitOfWorkPostgresRepository) UpdateByUUID(ctx context.Context, uow mod
 
 func (r *UnitOfWorkPostgresRepository) FilterByUnstaged(ctx context.Context, queryParameters repositories.QueryParameters, lockControlParameters repositories.LockControlParameters) ([]models.UnitOfWork, error) {
 	const baseQ = `
-		SELECT uuid, name, config_json, created_at, staged_at
+		SELECT uuid, name, config, created_at, staged_at
 		FROM units_of_work
 		WHERE staged_at IS NULL
 	`
@@ -91,7 +91,7 @@ func (r *UnitOfWorkPostgresRepository) FilterByUnstaged(ctx context.Context, que
 			subErr := r.Scan(
 				&record.UUID,
 				&record.Name,
-				&record.ConfigJSON,
+				&record.Config,
 				&record.CreatedAt,
 				&record.StagedAt,
 			)

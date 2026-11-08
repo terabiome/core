@@ -30,8 +30,8 @@ func (s *UnitOfWork) Submit(ctx context.Context, uowContract yamlcontracts.UnitO
 	}
 
 	uow := models.UnitOfWork{
-		Name:       uowContract.Name,
-		ConfigJSON: uowBytes,
+		Name:   uowContract.Name,
+		Config: uowBytes,
 	}
 
 	if err = s.uowRepository.Create(ctx, uow); err != nil {

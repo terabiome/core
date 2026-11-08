@@ -2,7 +2,7 @@
 CREATE TABLE IF NOT EXISTS units_of_work (
     uuid UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
-    config_json JSONB NOT NULL,
+    config JSONB NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     staged_at TIMESTAMP WITH TIME ZONE
 );

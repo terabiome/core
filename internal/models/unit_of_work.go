@@ -8,11 +8,11 @@ import (
 
 // UnitOfWork represents the master plan row.
 type UnitOfWork struct {
-	UUID       uuid.UUID
-	Name       string
-	ConfigJSON json.RawMessage
-	CreatedAt  time.Time
-	StagedAt   time.Time // zeroable
+	UUID      uuid.UUID
+	Name      string
+	Config    json.RawMessage
+	CreatedAt time.Time
+	StagedAt  time.Time // zeroable
 }
 
 // Dispatch represents a per-target assignment.
@@ -20,7 +20,9 @@ type Dispatch struct {
 	UUID      uuid.UUID
 	UOWUUID   uuid.UUID
 	Status    string
+	Target    json.RawMessage
 	Metadata  json.RawMessage
+	Payload   json.RawMessage
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
