@@ -16,14 +16,16 @@ import (
 )
 
 type ShellRunner struct {
-	logger loggingpkg.Logger
+	logger         loggingpkg.Logger
+	maxConcurrency int
 }
 
 func NewShellRunner(
 	logger loggingpkg.Logger,
 ) *ShellRunner {
 	return &ShellRunner{
-		logger: logger,
+		logger:         logger,
+		maxConcurrency: runtime.NumCPU(),
 	}
 }
 
@@ -50,7 +52,7 @@ func (r *ShellRunner) Run(ctx context.Context, uow yamlcontracts.UnitOfWork) err
 	}
 
 	// 2. Execute using Intrinsic
-	wfExec := executor.NewWorkflowExecutor(env)
+	wfExec := executor.NewWorkflowExecutor(env, r.maxConcurrency)
 	r.logger.InfoContext(ctx, "Starting local execution...")
 	return wfExec.ExecuteAsDAG(ctx, uow.Sequences)
 }

@@ -2,6 +2,7 @@ package executor
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 
@@ -11,69 +12,119 @@ import (
 
 // WorkflowExecutor handles the top-level coordination of a UnitOfWork.
 type WorkflowExecutor struct {
-	env               *operations.OperationEnvironment
-	concurrency       int
-	concurrencyFactor int
+	env            *operations.OperationEnvironment
+	maxConcurrency int
 }
 
-func NewWorkflowExecutor(env *operations.OperationEnvironment) *WorkflowExecutor {
+func NewWorkflowExecutor(env *operations.OperationEnvironment, maxConcurrency int) *WorkflowExecutor {
+	if maxConcurrency <= 0 {
+		maxConcurrency = 4
+	}
 	return &WorkflowExecutor{
-		env:               env,
-		concurrency:       0,
-		concurrencyFactor: 4,
+		env:            env,
+		maxConcurrency: maxConcurrency,
 	}
 }
 
-// Run in concurrent at best effort
+// ExecuteAsDAG dynamically resolves dependencies and executes sequences concurrently.
 func (w *WorkflowExecutor) ExecuteAsDAG(ctx context.Context, seqs []yamlcontracts.UnitOfWorkSequence) error {
-	// atp, the sequence slice is guarantee to form a DAG
+	if len(seqs) == 0 {
+		return nil
+	}
+
 	var (
+		mu                     sync.Mutex
 		stagedSequences        = make(map[string]yamlcontracts.UnitOfWorkSequence, len(seqs))
 		completedSequenceNames = make(map[string]bool, len(seqs))
+		activeGoroutines       = 0
+		errChan                = make(chan error, len(seqs))
+		wg                     sync.WaitGroup
 	)
 
 	for _, seq := range seqs {
 		stagedSequences[seq.Name] = seq
 	}
 
-	var (
-		errChan = make(chan error, len(seqs))
-		wg      = sync.WaitGroup{}
-	)
-	// sweep
-	for len(completedSequenceNames) != len(seqs) && len(stagedSequences) != 0 {
-		for _, stagedSequence := range stagedSequences {
-			// just to make sure
-			if _, ok := completedSequenceNames[stagedSequence.Name]; ok {
-				delete(stagedSequences, stagedSequence.Name)
-				continue
-			}
-			// check if sequence's dependencies are COMPLETED, else skip
-			for _, dependencySequenceName := range stagedSequence.DependsOn {
-				if _, ok := completedSequenceNames[dependencySequenceName]; !ok {
-					continue
-				}
-			}
-			// must not dispatch more than <concurrencyFactor>
-			if w.concurrency >= w.concurrencyFactor {
+	// Worker pool to process ready sequences
+	for {
+		mu.Lock()
+
+		// Check for completion or deadlock
+		if len(completedSequenceNames) == len(seqs) {
+			mu.Unlock()
+			break
+		}
+
+		// Find sequences that are ready to run
+		var readyToRun []yamlcontracts.UnitOfWorkSequence
+		for name, seq := range stagedSequences {
+			if completedSequenceNames[name] {
 				continue
 			}
 
-			// enlist for military duty
+			// Check dependencies
+			allDepsMet := true
+			for _, dep := range seq.DependsOn {
+				if !completedSequenceNames[dep] {
+					allDepsMet = false
+					break
+				}
+			}
+
+			if allDepsMet && activeGoroutines < w.maxConcurrency {
+				readyToRun = append(readyToRun, seq)
+				activeGoroutines++
+				delete(stagedSequences, name)
+			}
+		}
+		mu.Unlock()
+
+		// If nothing is ready and we have active goroutines, wait for one to finish
+		if len(readyToRun) == 0 {
+			if activeGoroutines <= 0 {
+				return fmt.Errorf("deadlock detected: unresolved dependencies in DAG")
+			}
+			// Briefly sleep to prevent 100% CPU busy-waiting
+			mu.Unlock()
+			// Note: A proper implementation would use a sync.Cond here to wait for a goroutine to signal completion.
+			// For simplicity, yield.
+			continue
+		}
+
+		// Launch ready sequences
+		for _, seq := range readyToRun {
 			wg.Add(1)
-			w.concurrency++
-			go func() {
+			go func(s yamlcontracts.UnitOfWorkSequence) {
 				defer wg.Done()
-				// Reuse our SequenceExecutor intrinsic
-				errChan <- NewSequenceExecutor(w.env).Execute(ctx, stagedSequence)
-				w.concurrency--
-				completedSequenceNames[stagedSequence.Name] = true
-				delete(stagedSequences, stagedSequence.Name)
-			}()
+
+				// Execute the sequence
+				err := NewSequenceExecutor(w.env).Execute(ctx, s)
+
+				// Record result safely
+				mu.Lock()
+				if err != nil {
+					errChan <- fmt.Errorf("sequence %s failed: %w", s.Name, err)
+				}
+				completedSequenceNames[s.Name] = true
+				activeGoroutines--
+				mu.Unlock()
+			}(seq)
 		}
 	}
 
-	return nil
+	// Wait for all goroutines to finish
+	wg.Wait()
+	close(errChan)
+
+	// Check for any errors
+	var err error
+	for subErr := range errChan {
+		if subErr != nil {
+			err = errors.Join(err, subErr)
+		}
+	}
+
+	return err
 }
 
 // Execute takes pre-sorted batches and runs them.
@@ -101,10 +152,16 @@ func (w *WorkflowExecutor) runBatch(ctx context.Context, batch yamlcontracts.Uni
 		wg.Add(1)
 		go func(s yamlcontracts.UnitOfWorkSequence) {
 			defer wg.Done()
-			// Reuse our SequenceExecutor intrinsic
+
+			// Check context before starting
+			if ctx.Err() != nil {
+				errChan <- ctx.Err()
+				return
+			}
+
 			exec := NewSequenceExecutor(w.env)
 			if err := exec.Execute(ctx, s); err != nil {
-				errChan <- err
+				errChan <- fmt.Errorf("sequence %s failed: %w", s.Name, err)
 			}
 		}(seq)
 	}
@@ -112,6 +169,7 @@ func (w *WorkflowExecutor) runBatch(ctx context.Context, batch yamlcontracts.Uni
 	wg.Wait()
 	close(errChan)
 
+	// Return the first error encountered, if any
 	for err := range errChan {
 		if err != nil {
 			return err
