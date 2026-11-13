@@ -25,6 +25,9 @@ func (m *TxManager) Wrap(ctx context.Context, fn func(ctx context.Context) error
 	tx, err = loadTxFromCtx(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to load existing transaction: %w", err)
+	} else {
+		// original context has [pgx.Tx] injected
+		txCtx = ctx
 	}
 
 	if tx == nil {
