@@ -14,6 +14,10 @@ type UnitOfWorkRepository interface {
 	UpdateByUUID(ctx context.Context, uow models.UnitOfWork) error
 }
 
+type DispatchRepository interface {
+	BulkInsert(ctx context.Context, dispatches []models.Dispatch) error
+}
+
 // orchestrate Repository call here, or whatever you like
 type TransactionManager interface {
 	Wrap(ctx context.Context, fn func(ctx context.Context) error) error
