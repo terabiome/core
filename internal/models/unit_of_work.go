@@ -15,11 +15,17 @@ type UnitOfWork struct {
 	StagedAt  time.Time // zeroable
 }
 
+type DispatchStatus string
+
+const (
+	DispatchStatusNew DispatchStatus = "NEW"
+)
+
 // Dispatch represents a per-target assignment.
 type Dispatch struct {
 	UUID      uuid.UUID
 	UOWUUID   uuid.UUID
-	Status    string
+	Status    DispatchStatus
 	Target    json.RawMessage
 	Metadata  json.RawMessage
 	Payload   json.RawMessage
