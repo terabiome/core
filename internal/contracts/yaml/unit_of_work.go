@@ -83,15 +83,15 @@ func (u UnitOfWork) Validate(validator *validator.Validate) error {
 		err = errors.Join(err, fmt.Errorf("duplicated name: %s", strings.Join(msgSegments, ",")))
 	}
 
-	if u.CheckCircularity() {
+	if u.CheckIfContainCycle() {
 		err = errors.Join(err, errors.New("cycle detected"))
 	}
 
 	return err
 }
 
-// GetSequenceDependencyGraph ...
-func (u UnitOfWork) CheckCircularity() bool {
+// CheckIfContainCycle ...
+func (u UnitOfWork) CheckIfContainCycle() bool {
 	// N keys: include ones without dependant.
 	// map{idx_of_dependant}map{idx_of_dependency}
 	directedAdjacencyGraph := make(map[string]map[string]struct{}, len(u.Sequences))
@@ -129,7 +129,7 @@ func (u UnitOfWork) CheckCircularity() bool {
 		}
 	}
 
-	return len(u.Sequences) == len(sortedDependents)
+	return len(u.Sequences) != len(sortedDependents)
 }
 
 // GetSortedSequences returns copy of Sequences sorted by number of dependencies.
