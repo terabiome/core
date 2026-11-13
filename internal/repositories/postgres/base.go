@@ -126,6 +126,13 @@ func (r *basePostgresRepository) wrappedExec(ctx context.Context, tx pgx.Tx, sql
 	return tx.Exec(ctx, sql, arguments...)
 }
 
+func (r *basePostgresRepository) wrappedSendBatch(ctx context.Context, tx pgx.Tx, b *pgx.Batch) pgx.BatchResults {
+	if tx == nil {
+		return r.pool.SendBatch(ctx, b)
+	}
+	return tx.SendBatch(ctx, b)
+}
+
 func (r *basePostgresRepository) wrappedQuery(ctx context.Context, tx pgx.Tx, sql string, arguments ...any) (pgx.Rows, error) {
 	if tx == nil {
 		return r.pool.Query(ctx, sql, arguments...)
