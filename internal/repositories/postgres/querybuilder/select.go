@@ -1,9 +1,15 @@
 package querybuilder
 
+import "github.com/terabiome/core/internal/repositories"
+
 type selectStatement struct {
-	table Expr
-	exprs []Expr
-	joins []joinClause
+	table  Expr
+	exprs  []Expr
+	joins  []joinClause
+	limit  int
+	offset int
+
+	lockType repositories.LockType
 }
 
 func Select(exprs ...Expr) *selectStatement {
@@ -23,17 +29,27 @@ func (stmt *selectStatement) Where(expr Expr) *selectStatement {
 	return stmt
 }
 
-func (stmt *selectStatement) OrderBy(exprs ...orderByExpr) *selectStatement {
-
+func (stmt *selectStatement) OrderBy(exprs ...sortFieldExpr) *selectStatement {
 	return stmt
 }
 
-func (stmt *selectStatement) Limit() *selectStatement {
+func (stmt *selectStatement) Limit(val int) *selectStatement {
+	stmt.limit = val
 	return stmt
 }
 
-func (stmt *selectStatement) Offset() *selectStatement {
+func (stmt *selectStatement) Offset(val int) *selectStatement {
+	stmt.offset = val
 	return stmt
+}
+
+func (stmt *selectStatement) Lock(lockType repositories.LockType) *selectStatement {
+	stmt.lockType = lockType
+	return stmt
+}
+
+func (stmt *selectStatement) Parameterize() (string, error) {
+	return "", nil
 }
 
 type joinClause struct {

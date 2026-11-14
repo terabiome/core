@@ -10,7 +10,7 @@ import (
 // Not wrapper around units_of_works table, but for all around "Unit of Works"
 type UnitOfWorkRepository interface {
 	Create(ctx context.Context, uow models.UnitOfWork) error
-	FilterByUnstaged(ctx context.Context, queryParameters repositories.QueryParameters, lockControlParameters repositories.LockControlParameters) ([]models.UnitOfWork, error)
+	FilterByUnstaged(ctx context.Context, limit int) ([]models.UnitOfWork, error)
 	UpdateByUUID(ctx context.Context, uow models.UnitOfWork) error
 }
 

@@ -34,15 +34,7 @@ func NewDispatch(
 func (s *Dispatch) Stage(ctx context.Context, limit int) error {
 	txErr := s.txManager.Wrap(ctx, func(ctx context.Context) error {
 		// query "units_of_work" by "staged_at=NULL"
-		uows, err := s.uowRepository.FilterByUnstaged(
-			ctx,
-			repositories.QueryParameters{
-				SortBy: []repositories.SortField{{Name: "uuid", Order: repositories.SortOrderAscending}},
-				Limit:  limit,
-			},
-			repositories.LockControlParameters{
-				Type: repositories.LockTypeLockForNoKeyUpdate,
-			})
+		uows, err := s.uowRepository.FilterByUnstaged(ctx, limit)
 		if err != nil {
 			return fmt.Errorf("failed to get unstaged unit-of-work: %w", err)
 		}
