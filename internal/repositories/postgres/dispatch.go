@@ -21,7 +21,7 @@ func NewDispatchPostgresRepository(pool *pgxpool.Pool) *DispatchPostgresReposito
 
 func (r *DispatchPostgresRepository) BulkInsert(ctx context.Context, dispatches []models.Dispatch) error {
 	q, err := querybuilder.
-		Insert("dispatches").
+		Insert(querybuilder.StringExpr("dispatches")).
 		Columns("uow_uuid", "status", "target", "payload").
 		Parameterize()
 
