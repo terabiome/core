@@ -14,7 +14,7 @@ import (
 )
 
 func loadTxFromCtx(ctx context.Context) (pgx.Tx, error) {
-	tx := ctx.Value(repositories.TxKey)
+	tx := ctx.Value(repositories.TxContextKey)
 	if tx == nil {
 		return nil, nil
 	}
@@ -32,7 +32,7 @@ func withTxInCtx(ctx context.Context, tx pgx.Tx) (context.Context, error) {
 		return ctx, errors.New("injecting nil tx, ignored")
 	}
 
-	return context.WithValue(ctx, repositories.TxKey, tx), nil
+	return context.WithValue(ctx, repositories.TxContextKey, tx), nil
 }
 
 // trust the SELECT base query

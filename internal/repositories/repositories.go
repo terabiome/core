@@ -1,9 +1,9 @@
 package repositories
 
-type txKeyType string
+type txContextKeyType string
 
 const (
-	TxKey txKeyType = "repositories.tx_key"
+	TxContextKey txContextKeyType = "repositories.tx_context_key"
 )
 
 type LockType string
