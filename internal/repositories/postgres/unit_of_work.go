@@ -7,7 +7,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/terabiome/core/internal/models"
-	"github.com/terabiome/core/internal/repositories"
+	"github.com/terabiome/core/internal/repositories/postgres/querybuilder"
 )
 
 type UnitOfWorkPostgresRepository struct {
@@ -60,15 +60,24 @@ func (r *UnitOfWorkPostgresRepository) UpdateByUUID(ctx context.Context, uow mod
 	return nil
 }
 
-func (r *UnitOfWorkPostgresRepository) FilterByUnstaged(ctx context.Context, queryParameters repositories.QueryParameters, lockControlParameters repositories.LockControlParameters) ([]models.UnitOfWork, error) {
-	const baseQ = `
-		SELECT uuid, name, config, created_at, staged_at
-		FROM units_of_work
-		WHERE staged_at IS NULL
-	`
-	q, err := transformSelectQuery(baseQ, queryParameters, lockControlParameters)
+func (r *UnitOfWorkPostgresRepository) FilterByUnstaged(ctx context.Context, limit int) ([]models.UnitOfWork, error) {
+	q, err := querybuilder.
+		Select(
+			querybuilder.StringExpr("uuid"),
+			querybuilder.StringExpr("name"),
+			querybuilder.StringExpr("config"),
+			querybuilder.StringExpr("created_at"),
+			querybuilder.StringExpr("staged_at"),
+		).
+		FromExpr(querybuilder.TableWithAliasExpr("units_of_work", "uow")).
+		Where(querybuilder.NullCheckExpr(querybuilder.StringExpr("staged_at"))).
+		Lock(querybuilder.RowLockForNoKeyUpdateExpr()).
+		OrderBy(querybuilder.DescSortExpr(querybuilder.StringExpr("uuid"))).
+		Limit(limit).
+		Parameterize()
+
 	if err != nil {
-		return nil, fmt.Errorf("failed to transform [SELECT] query: %w", err)
+		return nil, fmt.Errorf("failed to build query: %w", err)
 	}
 
 	tx, err := loadTxFromCtx(ctx)
