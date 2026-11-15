@@ -54,7 +54,8 @@ func (s *Dispatch) Stage(ctx context.Context, limit int) error {
 				continue
 			}
 
-			sequences, subErr := yaml.Marshal(uowYAML.Sequences)
+			// DB column is JSONB, unfortunately
+			sequences, subErr := json.Marshal(uowYAML.Sequences)
 			if subErr != nil {
 				err = errors.Join(err, fmt.Errorf("failed to serialize sequence to [json.RawMessage] for unit-of-work uuid=%s: %w", uow.UUID, subErr))
 				continue
@@ -69,7 +70,7 @@ func (s *Dispatch) Stage(ctx context.Context, limit int) error {
 
 			dispatches := make([]models.Dispatch, 0, len(uowYAML.Targets))
 			for _, targetYAML := range uowYAML.Targets {
-				target, subErr := yaml.Marshal(targetYAML)
+				target, subErr := json.Marshal(targetYAML)
 				if subErr != nil {
 					err = errors.Join(err, fmt.Errorf("failed to serialize target to [json.RawMessage] for unit-of-work uuid=%s: %w", uow.UUID, subErr))
 					break
