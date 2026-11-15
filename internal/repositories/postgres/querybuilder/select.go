@@ -3,19 +3,17 @@ package querybuilder
 import (
 	"fmt"
 	"strings"
-
-	"github.com/terabiome/core/internal/repositories"
 )
 
 // no JOIN yet
 type selectStatement struct {
-	table    Expr
-	exprs    []Expr
-	where    []Expr
-	orderBy  []sortFieldExpr
-	limit    int
-	offset   int
-	lockType repositories.LockType
+	table   Expr
+	exprs   []Expr
+	where   []Expr
+	orderBy []sortFieldExpr
+	limit   int
+	offset  int
+	rowLock *rowLockExpr
 }
 
 func Select(exprs ...Expr) *selectStatement {
@@ -69,8 +67,8 @@ func (stmt *selectStatement) Offset(val int) *selectStatement {
 	return stmt
 }
 
-func (stmt *selectStatement) Lock(lockType repositories.LockType) *selectStatement {
-	stmt.lockType = lockType
+func (stmt *selectStatement) Lock(rowLockExpr rowLockExpr) *selectStatement {
+	stmt.rowLock = &rowLockExpr
 	return stmt
 }
 
@@ -107,8 +105,8 @@ func (stmt *selectStatement) Parameterize() (string, error) {
 			return "", fmt.Errorf("failed to eval expression group in WHERE: %w", err)
 		}
 
-		if len(segments) > 1 {
-			q = fmt.Sprintf("%s WHERE %s", q, strings.Join(segments, " "))
+		if len(segments) >= 1 {
+			q += fmt.Sprintf(" WHERE %s", strings.Join(segments, " "))
 		}
 	}
 
@@ -128,8 +126,13 @@ func (stmt *selectStatement) Parameterize() (string, error) {
 	// 5. Append Lock clause (e.g., FOR NO KEY UPDATE)
 	// Note: Adjust the condition below if repositories.LockType is an int enum (use != 0)
 	// instead of a string alias (use != ""). fmt.Sprint is used as a safe fallback.
-	if lockStr := fmt.Sprint(stmt.lockType); lockStr != "" && lockStr != "0" {
-		q += fmt.Sprintf(" %s", stmt.lockType)
+	if stmt.rowLock != nil {
+		lockStr, err := stmt.rowLock.Eval()
+		if err != nil {
+			return "", fmt.Errorf("failed to eval row lock (%s): %w", stmt.rowLock.val, err)
+		}
+
+		q += fmt.Sprintf(" %s", lockStr)
 	}
 
 	// 6. Append LIMIT and OFFSET
@@ -139,6 +142,28 @@ func (stmt *selectStatement) Parameterize() (string, error) {
 
 	if stmt.offset > 0 {
 		q += fmt.Sprintf(" OFFSET %d", stmt.offset)
+	}
+
+	// Format
+	pipes := []func(s string) string{
+		func(s string) string {
+			return strings.ReplaceAll(s, "\n", " ")
+		},
+		func(s string) string {
+			return strings.ReplaceAll(s, "\r", " ")
+		},
+		func(s string) string {
+			return strings.ReplaceAll(s, "\t", " ")
+		},
+		func(s string) string {
+			return strings.TrimFunc(s, func(r rune) bool {
+				return r == rune('\n') || r == rune('\r') || r == rune(' ')
+			})
+		},
+	}
+
+	for _, pipe := range pipes {
+		q = pipe(q)
 	}
 
 	return q, nil
