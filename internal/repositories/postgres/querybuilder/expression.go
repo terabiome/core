@@ -40,6 +40,27 @@ func (e tableExpr) Eval() (string, error) {
 	return fmt.Sprintf("%s AS %s", e.base, e.alias), nil
 }
 
+type columnExpr struct {
+	base  string
+	alias string
+}
+
+func (e columnExpr) Eval() (string, error) {
+	if !columnNameRegex.Match([]byte(e.base)) {
+		return "", fmt.Errorf("invalid column name: value=%s pattern=%s", e.base, columnNameRegex.String())
+	}
+
+	if e.alias != "" && !aliasNameRegex.Match([]byte(e.alias)) {
+		return "", fmt.Errorf("invalid alias name")
+	}
+
+	if e.alias == "" {
+		return e.base, nil
+	}
+
+	return fmt.Sprintf("%s AS %s", e.base, e.alias), nil
+}
+
 type sortFieldExpr struct {
 	sortExpr  Expr
 	direction SortOrder
@@ -207,6 +228,19 @@ func RowLockForUpdateExpr() rowLockExpr {
 
 func RowLockForNoKeyUpdateExpr() rowLockExpr {
 	return rowLockExpr{stringExpr("FOR NO KEY UPDATE")}
+}
+
+func ColumnExpr(column string) columnExpr {
+	return columnExpr{
+		base: column,
+	}
+}
+
+func ColumnExprWithAliasExpr(column string, alias string) columnExpr {
+	return columnExpr{
+		base:  column,
+		alias: alias,
+	}
 }
 
 func EvalFold(exprs []Expr) ([]string, error) {
