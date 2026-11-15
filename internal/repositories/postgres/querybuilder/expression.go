@@ -147,6 +147,10 @@ type rowLockExpr struct {
 	stringExpr
 }
 
+type whenLockedExpr struct {
+	stringExpr
+}
+
 func StringExpr(val string) stringExpr {
 	return stringExpr(val)
 }
@@ -168,6 +172,19 @@ func TableExpr(base string) tableExpr {
 func TableWithAliasExpr(base string, alias string) tableExpr {
 	return tableExpr{
 		base:  base,
+		alias: alias,
+	}
+}
+
+func ColumnExpr(column string) columnExpr {
+	return columnExpr{
+		base: column,
+	}
+}
+
+func ColumnExprWithAliasExpr(column string, alias string) columnExpr {
+	return columnExpr{
+		base:  column,
 		alias: alias,
 	}
 }
@@ -230,17 +247,12 @@ func RowLockForNoKeyUpdateExpr() rowLockExpr {
 	return rowLockExpr{stringExpr("FOR NO KEY UPDATE")}
 }
 
-func ColumnExpr(column string) columnExpr {
-	return columnExpr{
-		base: column,
-	}
+func WhenLockedNoWaitExpr() whenLockedExpr {
+	return whenLockedExpr{stringExpr("NOWAIT")}
 }
 
-func ColumnExprWithAliasExpr(column string, alias string) columnExpr {
-	return columnExpr{
-		base:  column,
-		alias: alias,
-	}
+func WhenLockedSkipLockedExpr() whenLockedExpr {
+	return whenLockedExpr{stringExpr("SKIP LOCKED")}
 }
 
 func EvalFold(exprs []Expr) ([]string, error) {

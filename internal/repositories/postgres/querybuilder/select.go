@@ -7,13 +7,14 @@ import (
 
 // no JOIN yet
 type selectStatement struct {
-	table   Expr
-	exprs   []Expr
-	where   []Expr
-	orderBy []sortFieldExpr
-	limit   int
-	offset  int
-	rowLock *rowLockExpr
+	table      Expr
+	exprs      []Expr
+	where      []Expr
+	orderBy    []sortFieldExpr
+	limit      int
+	offset     int
+	rowLock    *rowLockExpr
+	whenLocked *whenLockedExpr
 }
 
 func Select(exprs ...Expr) *selectStatement {
@@ -72,8 +73,13 @@ func (stmt *selectStatement) Lock(rowLockExpr rowLockExpr) *selectStatement {
 	return stmt
 }
 
+func (stmt *selectStatement) WhenLocked(whenLockedExpr whenLockedExpr) *selectStatement {
+	stmt.whenLocked = &whenLockedExpr
+	return stmt
+}
+
 func (stmt *selectStatement) Parameterize() (string, error) {
-	// 1. Validate and evaluate the table
+	// Validate and evaluate the table
 	if stmt.table == nil {
 		return "", fmt.Errorf("table expression is required")
 	}
@@ -82,7 +88,7 @@ func (stmt *selectStatement) Parameterize() (string, error) {
 		return "", fmt.Errorf("failed to evaluate table: %w", err)
 	}
 
-	// 2. Evaluate SELECT columns
+	// Evaluate SELECT columns
 	var selectCols []string
 	if len(stmt.exprs) == 0 {
 		selectCols = append(selectCols, "*")
@@ -98,7 +104,7 @@ func (stmt *selectStatement) Parameterize() (string, error) {
 
 	q := fmt.Sprintf("SELECT %s FROM %s", strings.Join(selectCols, ", "), tableStr)
 
-	// 3. Evaluate WHERE clause
+	// Evaluate WHERE clause
 	if stmt.where != nil {
 		segments, err := EvalFold(stmt.where)
 		if err != nil {
@@ -110,7 +116,7 @@ func (stmt *selectStatement) Parameterize() (string, error) {
 		}
 	}
 
-	// 4. Evaluate ORDER BY clause
+	// Evaluate ORDER BY clause
 	if len(stmt.orderBy) > 0 {
 		var orderByStrs []string
 		for _, ob := range stmt.orderBy {
@@ -123,7 +129,7 @@ func (stmt *selectStatement) Parameterize() (string, error) {
 		q += fmt.Sprintf(" ORDER BY %s", strings.Join(orderByStrs, ", "))
 	}
 
-	// 5. Append Lock clause (e.g., FOR NO KEY UPDATE)
+	// Append Lock clause (e.g., FOR NO KEY UPDATE)
 	// Note: Adjust the condition below if repositories.LockType is an int enum (use != 0)
 	// instead of a string alias (use != ""). fmt.Sprint is used as a safe fallback.
 	if stmt.rowLock != nil {
@@ -135,7 +141,16 @@ func (stmt *selectStatement) Parameterize() (string, error) {
 		q += fmt.Sprintf(" %s", lockStr)
 	}
 
-	// 6. Append LIMIT and OFFSET
+	if stmt.whenLocked != nil {
+		whenLockedStratStr, err := stmt.whenLocked.Eval()
+		if err != nil {
+			return "", fmt.Errorf("failed to eval when locked expr (%s): %w", stmt.whenLocked.stringExpr, err)
+		}
+
+		q += fmt.Sprintf(" %s", whenLockedStratStr)
+	}
+
+	// Append LIMIT and OFFSET
 	if stmt.limit > 0 {
 		q += fmt.Sprintf(" LIMIT %d", stmt.limit)
 	}
