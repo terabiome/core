@@ -28,7 +28,7 @@ type tableExpr struct {
 
 func (e tableExpr) Eval() (string, error) {
 	if !tableNameRegex.Match([]byte(e.base)) {
-		return "", fmt.Errorf("invalid table name")
+		return "", fmt.Errorf("invalid table name: value=%s pattern=%s", e.base, tableNameRegex.String())
 	}
 
 	if e.alias != "" && !aliasNameRegex.Match([]byte(e.alias)) {
@@ -75,17 +75,19 @@ func (e comparisonExpr) Eval() (string, error) {
 		return "", fmt.Errorf("failed to evaluate LHS: %w", err)
 	}
 
-	rhs, err := e.rhs.Eval()
-	if err != nil {
-		return "", fmt.Errorf("failed to evaluate RHS: %w", err)
-	}
-
 	if lhs == "" || e.comparator == "" {
 		return "", fmt.Errorf("missing LHS or comparator")
 	}
 
-	if rhs != "" {
-		return fmt.Sprintf("%s %s %s", lhs, e.comparator, rhs), nil
+	if e.rhs != nil {
+		rhs, err := e.rhs.Eval()
+		if err != nil {
+			return "", fmt.Errorf("failed to evaluate RHS: %w", err)
+		}
+
+		if rhs != "" {
+			return fmt.Sprintf("%s %s %s", lhs, e.comparator, rhs), nil
+		}
 	}
 
 	return fmt.Sprintf("%s %s", lhs, e.comparator), nil
@@ -120,6 +122,10 @@ func (e comparisonGroupExpr) Eval() (string, error) {
 	}
 
 	return fmt.Sprintf("(%s)", strings.Join(segments, " ")), nil
+}
+
+type rowLockExpr struct {
+	stringExpr
 }
 
 func StringExpr(val string) stringExpr {
@@ -191,10 +197,23 @@ func ComparisonGroupExpr(expr Expr) *comparisonGroupExpr {
 	}
 }
 
+func RowLockForUpdateExpr() rowLockExpr {
+	return rowLockExpr{stringExpr{"FOR UPDATE"}}
+}
+
+func RowLockForNoKeyUpdateExpr() rowLockExpr {
+	return rowLockExpr{stringExpr{"FOR NO KEY UPDATE"}}
+}
+
 func EvalFold(exprs []Expr) ([]string, error) {
 	var err error
 	segments := make([]string, 0, len(exprs))
+
 	for idx, expr := range exprs {
+		if expr == nil {
+			continue
+		}
+
 		exprStr, subErr := expr.Eval()
 		if subErr != nil {
 			err = errors.Join(err, fmt.Errorf("failed to eval expr at idx %d: %w", idx, err))
