@@ -129,7 +129,7 @@ func (stmt *selectStatement) Parameterize() (string, error) {
 	if stmt.rowLock != nil {
 		lockStr, err := stmt.rowLock.Eval()
 		if err != nil {
-			return "", fmt.Errorf("failed to eval row lock (%s): %w", stmt.rowLock.val, err)
+			return "", fmt.Errorf("failed to eval row lock (%s): %w", stmt.rowLock.stringExpr, err)
 		}
 
 		q += fmt.Sprintf(" %s", lockStr)

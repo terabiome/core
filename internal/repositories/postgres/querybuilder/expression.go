@@ -13,12 +13,10 @@ const (
 	SortOrderDescending SortOrder = "DESC"
 )
 
-type stringExpr struct {
-	val string
-}
+type stringExpr string
 
 func (e stringExpr) Eval() (string, error) {
-	return e.val, nil
+	return string(e), nil
 }
 
 type tableExpr struct {
@@ -129,9 +127,15 @@ type rowLockExpr struct {
 }
 
 func StringExpr(val string) stringExpr {
-	return stringExpr{
-		val: val,
-	}
+	return stringExpr(val)
+}
+
+func DoubleQuotedStringExpr(val string) stringExpr {
+	return stringExpr(fmt.Sprintf("\"%s\"", val))
+}
+
+func SingleQuotedStringExpr(val string) stringExpr {
+	return stringExpr(fmt.Sprintf("'%s'", val))
 }
 
 func TableExpr(base string) tableExpr {
@@ -198,11 +202,11 @@ func ComparisonGroupExpr(expr Expr) *comparisonGroupExpr {
 }
 
 func RowLockForUpdateExpr() rowLockExpr {
-	return rowLockExpr{stringExpr{"FOR UPDATE"}}
+	return rowLockExpr{stringExpr("FOR UPDATE")}
 }
 
 func RowLockForNoKeyUpdateExpr() rowLockExpr {
-	return rowLockExpr{stringExpr{"FOR NO KEY UPDATE"}}
+	return rowLockExpr{stringExpr("FOR NO KEY UPDATE")}
 }
 
 func EvalFold(exprs []Expr) ([]string, error) {
@@ -229,6 +233,6 @@ func EvalFold(exprs []Expr) ([]string, error) {
 	return segments, nil
 }
 
-var Wildcard = stringExpr{"*"}
-var Or = stringExpr{"OR"}
-var And = stringExpr{"AND"}
+var Wildcard = stringExpr("*")
+var Or = stringExpr("OR")
+var And = stringExpr("AND")
