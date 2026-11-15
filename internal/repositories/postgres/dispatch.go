@@ -63,6 +63,7 @@ func (r *DispatchPostgresRepository) FilterByStatus(ctx context.Context, status 
 		OrderBy(querybuilder.DescSortExpr(querybuilder.StringExpr("uuid"))).
 		Limit(limit).
 		Lock(querybuilder.RowLockForNoKeyUpdateExpr()).
+		WhenLocked(querybuilder.WhenLockedSkipLockedExpr()).
 		Parameterize()
 
 	if err != nil {
