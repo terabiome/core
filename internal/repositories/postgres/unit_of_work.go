@@ -21,10 +21,13 @@ func NewUnitOfWorkPostgresRepository(pool *pgxpool.Pool) *UnitOfWorkPostgresRepo
 
 // Create creates just an UOW record.
 func (r *UnitOfWorkPostgresRepository) Create(ctx context.Context, uow models.UnitOfWork) error {
-	const q = `
-		INSERT INTO units_of_work (name, config)
-		VALUES ($1, $2)
-	`
+	q, err := querybuilder.
+		Insert(querybuilder.StringExpr("units_of_work")).
+		Columns("name", "config").
+		Parameterize()
+	if err != nil {
+		return fmt.Errorf("failed to build query: %w", err)
+	}
 
 	tx, err := loadTxFromCtx(ctx)
 	if err != nil {
