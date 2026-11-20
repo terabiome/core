@@ -8,7 +8,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/terabiome/core/internal/models"
 	"github.com/terabiome/core/internal/repositories"
-	"github.com/terabiome/core/internal/repositories/postgres/querybuilder"
+	qb "github.com/terabiome/core/pkg/querybuilder/postgresql"
 )
 
 type DispatchPostgresRepository struct {
@@ -21,8 +21,8 @@ func NewDispatchPostgresRepository(pool *pgxpool.Pool) *DispatchPostgresReposito
 }
 
 func (r *DispatchPostgresRepository) BulkInsert(ctx context.Context, dispatches []models.Dispatch) error {
-	q, err := querybuilder.
-		Insert(querybuilder.StringExpr("dispatches")).
+	q, err := qb.
+		Insert(qb.StringExpr("dispatches")).
 		Columns("uow_uuid", "status", "target", "payload").
 		Parameterize()
 
@@ -48,23 +48,23 @@ func (r *DispatchPostgresRepository) BulkInsert(ctx context.Context, dispatches 
 }
 
 func (r *DispatchPostgresRepository) FilterByStatus(ctx context.Context, status models.DispatchStatus, limit int) (*repositories.DispatchFilterOutput, error) {
-	q, err := querybuilder.
+	q, err := qb.
 		Select(
-			querybuilder.ColumnExpr("uuid"),
-			querybuilder.ColumnExpr("uow_uuid"),
-			querybuilder.ColumnExpr("target"),
-			querybuilder.ColumnExpr("metadata"),
-			querybuilder.ColumnExpr("payload"),
+			qb.ColumnExpr("uuid"),
+			qb.ColumnExpr("uow_uuid"),
+			qb.ColumnExpr("target"),
+			qb.ColumnExpr("metadata"),
+			qb.ColumnExpr("payload"),
 		).
-		FromExpr(querybuilder.TableExpr("dispatches")).
-		Where(querybuilder.EqualCheckExpr(
-			querybuilder.StringExpr("status"),
-			querybuilder.SingleQuotedStringExpr(string(status))),
+		FromExpr(qb.TableExpr("dispatches")).
+		Where(qb.EqualCheckExpr(
+			qb.StringExpr("status"),
+			qb.SingleQuotedStringExpr(string(status))),
 		).
-		OrderBy(querybuilder.DescSortExpr(querybuilder.StringExpr("uuid"))).
+		OrderBy(qb.DescSortExpr(qb.StringExpr("uuid"))).
 		Limit(limit).
-		Lock(querybuilder.RowLockForNoKeyUpdateExpr()).
-		WhenLocked(querybuilder.WhenLockedSkipLockedExpr()).
+		Lock(qb.RowLockForNoKeyUpdateExpr()).
+		WhenLocked(qb.WhenLockedSkipLockedExpr()).
 		Parameterize()
 
 	if err != nil {

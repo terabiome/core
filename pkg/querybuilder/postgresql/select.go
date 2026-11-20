@@ -1,4 +1,4 @@
-package querybuilder
+package postgresql
 
 import (
 	"fmt"

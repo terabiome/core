@@ -7,7 +7,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/terabiome/core/internal/models"
-	"github.com/terabiome/core/internal/repositories/postgres/querybuilder"
+	qb "github.com/terabiome/core/pkg/querybuilder/postgresql"
 )
 
 type UnitOfWorkPostgresRepository struct {
@@ -21,8 +21,8 @@ func NewUnitOfWorkPostgresRepository(pool *pgxpool.Pool) *UnitOfWorkPostgresRepo
 
 // Create creates just an UOW record.
 func (r *UnitOfWorkPostgresRepository) Create(ctx context.Context, uow models.UnitOfWork) error {
-	q, err := querybuilder.
-		Insert(querybuilder.StringExpr("units_of_work")).
+	q, err := qb.
+		Insert(qb.StringExpr("units_of_work")).
 		Columns("name", "config").
 		Parameterize()
 	if err != nil {
@@ -64,18 +64,18 @@ func (r *UnitOfWorkPostgresRepository) UpdateByUUID(ctx context.Context, uow mod
 }
 
 func (r *UnitOfWorkPostgresRepository) FilterByUnstaged(ctx context.Context, limit int) ([]models.UnitOfWork, error) {
-	q, err := querybuilder.
+	q, err := qb.
 		Select(
-			querybuilder.StringExpr("uuid"),
-			querybuilder.StringExpr("name"),
-			querybuilder.StringExpr("config"),
-			querybuilder.StringExpr("created_at"),
-			querybuilder.StringExpr("staged_at"),
+			qb.StringExpr("uuid"),
+			qb.StringExpr("name"),
+			qb.StringExpr("config"),
+			qb.StringExpr("created_at"),
+			qb.StringExpr("staged_at"),
 		).
-		FromExpr(querybuilder.TableWithAliasExpr("units_of_work", "uow")).
-		Where(querybuilder.NullCheckExpr(querybuilder.StringExpr("staged_at"))).
-		Lock(querybuilder.RowLockForNoKeyUpdateExpr()).
-		OrderBy(querybuilder.DescSortExpr(querybuilder.StringExpr("uuid"))).
+		FromExpr(qb.TableWithAliasExpr("units_of_work", "uow")).
+		Where(qb.NullCheckExpr(qb.StringExpr("staged_at"))).
+		Lock(qb.RowLockForNoKeyUpdateExpr()).
+		OrderBy(qb.DescSortExpr(qb.StringExpr("uuid"))).
 		Limit(limit).
 		Parameterize()
 
