@@ -3,6 +3,7 @@ package postgresql
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -160,6 +161,7 @@ func (r *DispatchPostgresRepository) BulkUpdate(ctx context.Context, inputs []re
 	batch := pgx.Batch{}
 	for _, input := range inputs {
 		q, args, err := querybuilder.Update(querybuilder.TableExpr("dispatches")).
+			Set("updated_at", querybuilder.Val{V: time.Now().UTC()}).
 			SetWhen("status", querybuilder.Val{V: input.Fields.Status}, func() bool {
 				return input.Fields.Status != ""
 			}).
