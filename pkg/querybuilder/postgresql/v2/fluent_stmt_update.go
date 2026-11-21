@@ -15,14 +15,17 @@ func (s *updateStatementWrapper) Set(col string, val Node) *updateStatementWrapp
 	return s
 }
 
-func (s *updateStatementWrapper) Where(n Node) *updateStatementWrapper {
-	s.stmt.Where = n
+func (s *updateStatementWrapper) SetWhen(col string, val Node, cond func() bool) *updateStatementWrapper {
+	if cond() {
+		s.stmt.Sets = append(s.stmt.Sets, Set{Col: col, Value: val})
+	}
 	return s
 }
 
 func (s *updateStatementWrapper) AndWhere(n Node) *updateStatementWrapper {
 	if s.stmt.Where == nil {
-		return s.Where(n)
+		s.stmt.Where = n
+		return s
 	}
 	s.stmt.Where = BoolOp{Op: "AND", Kids: []Node{s.stmt.Where, n}}
 	return s
@@ -30,10 +33,16 @@ func (s *updateStatementWrapper) AndWhere(n Node) *updateStatementWrapper {
 
 func (s *updateStatementWrapper) OrWhere(n Node) *updateStatementWrapper {
 	if s.stmt.Where == nil {
-		return s.Where(n)
+		s.stmt.Where = n
+		return s
 	}
 	s.stmt.Where = BoolOp{Op: "OR", Kids: []Node{s.stmt.Where, n}}
 	return s
+}
+
+// basically AND where chain, like Laravel
+func (s *updateStatementWrapper) Where(n Node) *updateStatementWrapper {
+	return s.AndWhere(n)
 }
 
 func (s *updateStatementWrapper) Build() (string, []any, error) {
