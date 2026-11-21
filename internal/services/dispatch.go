@@ -2,14 +2,17 @@ package services
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
 	"time"
+	"uuid"
 
 	yamlcontracts "github.com/terabiome/core/internal/contracts/yaml"
 	"github.com/terabiome/core/internal/models"
 	"github.com/terabiome/core/internal/repositories"
+	"github.com/terabiome/core/pkg/helpers"
 	"go.yaml.in/yaml/v4"
 )
 
@@ -102,6 +105,78 @@ func (s *Dispatch) Stage(ctx context.Context, limit int) error {
 
 		if err != nil {
 			log.Printf("encountered error updating uows, do partial commit anyway: %v\n", err)
+		}
+
+		return nil
+	})
+	return txErr
+}
+
+func (s *Dispatch) BookDispatches(ctx context.Context, limit int) error {
+	// build a KEY for this call to BOOK dispatches and PROCESS them
+	// context should carry a timestamp for deadline if not exist, for later claim during catastrophic execution
+	deadline, isDeadlineSet := ctx.Deadline()
+	if !isDeadlineSet {
+		// no need to use [context.WithDeadline]
+		deadline = time.Now().UTC().Add(120 * time.Second)
+	}
+
+	idempotencyKey, err := loadIdempotencyKeyFromCtx(ctx)
+	if err != nil {
+		// tolerate
+		log.Println("generating new one after failing to fetch idempotency key from ctx: %w", err)
+		idempotencyKey = fmt.Sprintf("%s:%s", "dispatch.process_new_dispatch", uuid.NewV7())
+		ctx = setIdempotencyKeyInCtx(ctx, idempotencyKey)
+	}
+
+	// start a transaction to book the dispatch records
+	txErr := s.txManager.Wrap(ctx, func(ctx context.Context) error {
+		dispatchFilterOutput, err := s.dispatchRepository.FilterByStatus(ctx, models.DispatchStatusNew, limit)
+		if err != nil {
+			return fmt.Errorf("failed to get new dispatches: %w", err)
+		}
+
+		// mark dispatch as STAGED
+		var dispatchUpdateInputBatch = make([]repositories.DispatchUpdateInput, 0, len(dispatchFilterOutput.Records))
+		for _, dispatchFilterRecord := range dispatchFilterOutput.Records {
+			metadataMap, err := helpers.JSON().Unmarshal[map[string]any](dispatchFilterRecord.Metadata)
+			if err != nil {
+				err = errors.Join(err, fmt.Errorf("failed to deserialize metadata from [json.RawMessage] to [%T]: %w", metadataMap, err))
+				continue
+			}
+
+			subMap := map[string]any{
+				"dispatch_key":          idempotencyKey,
+				"dispatch_key_deadline": deadline,
+				"dispatch_retries":      0,
+			}
+			if v, ok := metadataMap["dispatch_retries"]; ok {
+				retries, ok := v.(int) // ignore cast error, coz idc
+				if ok {
+					subMap["dispatch_retries"] = retries + 1
+				}
+			}
+
+			dispatchFilterRecord.Metadata, err = json.Marshal(helpers.Map().ImmutableMerge(metadataMap, subMap))
+			if err != nil {
+				err = errors.Join(err, fmt.Errorf("failed to serialize metadata to [json.RawMessage]: %w", err))
+				continue
+			}
+
+			dispatchUpdateInputBatch = append(dispatchUpdateInputBatch, repositories.DispatchUpdateInput{
+				Filters: repositories.DispatchUpdateFilters{
+					UUID: &dispatchFilterRecord.UUID,
+				},
+				Fields: repositories.DispatchUpdateFields{
+					Metadata: &dispatchFilterRecord.Metadata,
+					Status:   models.DispatchStatusStaged,
+				},
+			})
+		}
+
+		// assume this always sets [models.Dispatch.UpdatedAt]
+		if err = s.dispatchRepository.BulkUpdate(ctx, dispatchUpdateInputBatch); err != nil {
+			return fmt.Errorf("failed to bulk update dispatches: %w", err)
 		}
 
 		return nil
