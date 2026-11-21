@@ -45,6 +45,13 @@ func (s *updateStatementWrapper) Where(n Node) *updateStatementWrapper {
 	return s.AndWhere(n)
 }
 
+func (s *updateStatementWrapper) WhereWhen(n Node, cond func() bool) *updateStatementWrapper {
+	if cond() {
+		return s.AndWhere(n)
+	}
+	return s
+}
+
 func (s *updateStatementWrapper) Build() (string, []any, error) {
 	if s.stmt.Table == nil {
 		return "", nil, fmt.Errorf("Update: table required")

@@ -17,7 +17,7 @@ type UnitOfWorkRepository interface {
 type DispatchRepository interface {
 	BulkInsert(ctx context.Context, dispatches []models.Dispatch) error
 	FilterByStatus(ctx context.Context, status models.DispatchStatus, limit int) (*repositories.DispatchFilterOutput, error)
-	Update(ctx context.Context, input repositories.DispatchUpdateInput) (*repositories.DispatchUpdateOutput, error)
+	Update(ctx context.Context, input repositories.DispatchUpdateInput) error
 	// BulkUpdate(ctx context.Context, input repositories.DispatchBulkUpdateInput) (*repositories.DispatchBulkUpdateOutput, error)
 }
 
