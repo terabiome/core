@@ -8,7 +8,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/terabiome/core/internal/models"
 	"github.com/terabiome/core/internal/repositories"
-	querybuilder "github.com/terabiome/core/pkg/querybuilder/postgresql"
+	querybuilder "github.com/terabiome/core/pkg/querybuilder/postgresql/v2"
 )
 
 type DispatchPostgresRepository struct {
@@ -48,7 +48,7 @@ func (r *DispatchPostgresRepository) BulkInsert(ctx context.Context, dispatches 
 }
 
 func (r *DispatchPostgresRepository) FilterByStatus(ctx context.Context, status models.DispatchStatus, limit int) (*repositories.DispatchFilterOutput, error) {
-	q, err := querybuilder.
+	q, _ := querybuilder.
 		Select(
 			querybuilder.ColumnExpr("uuid"),
 			querybuilder.ColumnExpr("uow_uuid"),
@@ -65,11 +65,7 @@ func (r *DispatchPostgresRepository) FilterByStatus(ctx context.Context, status 
 		Limit(limit).
 		Lock(querybuilder.RowLockForNoKeyUpdateExpr()).
 		WhenLocked(querybuilder.WhenLockedSkipLockedExpr()).
-		Parameterize()
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to build query: %w", err)
-	}
+		Build()
 
 	tx, err := loadTxFromCtx(ctx)
 	if err != nil {

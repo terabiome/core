@@ -7,7 +7,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/terabiome/core/internal/models"
-	querybuilder "github.com/terabiome/core/pkg/querybuilder/postgresql"
+	querybuilder "github.com/terabiome/core/pkg/querybuilder/postgresql/v2"
 )
 
 type UnitOfWorkPostgresRepository struct {
@@ -21,10 +21,10 @@ func NewUnitOfWorkPostgresRepository(pool *pgxpool.Pool) *UnitOfWorkPostgresRepo
 
 // Create creates just an UOW record.
 func (r *UnitOfWorkPostgresRepository) Create(ctx context.Context, uow models.UnitOfWork) error {
-	q, err := querybuilder.
+	q, _, err := querybuilder.
 		Insert(querybuilder.StringExpr("units_of_work")).
 		Columns("name", "config").
-		Parameterize()
+		Build()
 	if err != nil {
 		return fmt.Errorf("failed to build query: %w", err)
 	}
@@ -64,7 +64,7 @@ func (r *UnitOfWorkPostgresRepository) UpdateByUUID(ctx context.Context, uow mod
 }
 
 func (r *UnitOfWorkPostgresRepository) FilterByUnstaged(ctx context.Context, limit int) ([]models.UnitOfWork, error) {
-	q, err := querybuilder.
+	q, _ := querybuilder.
 		Select(
 			querybuilder.StringExpr("uuid"),
 			querybuilder.StringExpr("name"),
@@ -77,11 +77,7 @@ func (r *UnitOfWorkPostgresRepository) FilterByUnstaged(ctx context.Context, lim
 		Lock(querybuilder.RowLockForNoKeyUpdateExpr()).
 		OrderBy(querybuilder.DescSortExpr(querybuilder.StringExpr("uuid"))).
 		Limit(limit).
-		Parameterize()
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to build query: %w", err)
-	}
+		Build()
 
 	tx, err := loadTxFromCtx(ctx)
 	if err != nil {
