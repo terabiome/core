@@ -42,21 +42,20 @@ func (r *UnitOfWorkPostgresRepository) Create(ctx context.Context, uow models.Un
 }
 
 func (r *UnitOfWorkPostgresRepository) UpdateByUUID(ctx context.Context, uow models.UnitOfWork) error {
-	const q = `
-		UPDATE units_of_work
-		SET
-			name = $2,
-			config = $3,
-			staged_at = $4
-		WHERE uuid = $1
-	`
+	q, args, err := querybuilder.
+		Update(querybuilder.TableExpr("unit_of_works")).
+		Set("name", querybuilder.Val{V: uow.Name}).
+		Set("config", querybuilder.Val{V: uow.Config}).
+		Set("staged_at", querybuilder.Val{V: uow.StagedAt}).
+		Where(querybuilder.EqualCheckExpr(querybuilder.ColumnExpr("uuid"), querybuilder.Val{V: uow.UUID})).
+		Build()
 
 	tx, err := loadTxFromCtx(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to load transaction from ctx: %w", err)
 	}
 
-	if _, err := r.wrappedExec(ctx, tx, q, uow.UUID, uow.Name, uow.Config, uow.StagedAt); err != nil {
+	if _, err := r.wrappedExec(ctx, tx, q, args); err != nil {
 		return r.Errorf("failed to update unit-of-work: %w", err)
 	}
 
