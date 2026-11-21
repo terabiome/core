@@ -20,17 +20,20 @@ type Dispatch struct {
 	baseService
 	uowRepository      UnitOfWorkRepository
 	dispatchRepository DispatchRepository
+	publisher          Publisher
 }
 
 func NewDispatch(
 	txManager TransactionManager,
 	uowRepo UnitOfWorkRepository,
 	dispatchRepo DispatchRepository,
+	publisher Publisher,
 ) *Dispatch {
 	return &Dispatch{
 		baseService:        newBaseService(txManager),
 		uowRepository:      uowRepo,
 		dispatchRepository: dispatchRepo,
+		publisher:          publisher,
 	}
 }
 
@@ -182,4 +185,28 @@ func (s *Dispatch) BookDispatches(ctx context.Context, limit int) error {
 		return nil
 	})
 	return txErr
+}
+
+func (s *Dispatch) ProcessBookedDispatches() {
+	// TODO
+	// // Unmarshal -> if err -> mark as FAILED
+	// for _, dispatch := range dispatches {
+	// 	envelope := natscontract.DispatchEnvelope{
+	// 		Metadata: map[string]any{
+	// 			"dispatch_uuid": dispatch.UUID,
+	// 			"uow_uuid":      dispatch.UOWUUID,
+	// 			"target":        dispatch.Target, // for workers wondering why it gets the message lol
+	// 		},
+	// 	}
+	// }
+
+	// // 	fmt.Println(envelope)
+
+	// // 	// message, err := json.Marshal(envelop)
+	// // }
+	// // Publish -> if err -> if dial err -> fine, if ambiguous -> try idempotency
+	// // mark as DISPATCHED -> if err -> something BIG happened -> log error immediately
+
+	// // have monotonic idempotency check in Subscriber as always (local SQLite can do it)
+
 }

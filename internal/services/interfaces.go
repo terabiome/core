@@ -33,3 +33,8 @@ type ServiceLeaseRepository interface {
 	ExpireLease(ctx context.Context, agentID string) error
 	GetStatus(ctx context.Context, agentID string) (string, error)
 }
+
+// note: leave it here for a moment, will clean up later
+type Publisher interface {
+	Publish(ctx context.Context, topic string, payload []byte) error
+}
