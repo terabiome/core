@@ -151,3 +151,48 @@ func (r *DispatchPostgresRepository) Update(ctx context.Context, input repositor
 
 	return nil
 }
+
+func (r *DispatchPostgresRepository) BulkUpdate(ctx context.Context, inputs []repositories.DispatchUpdateInput) error {
+	if len(inputs) == 0 {
+		return nil
+	}
+
+	batch := pgx.Batch{}
+	for _, input := range inputs {
+		q, args, err := querybuilder.Update(querybuilder.TableExpr("dispatches")).
+			SetWhen("status", querybuilder.Val{V: input.Fields.Status}, func() bool {
+				return input.Fields.Status != ""
+			}).
+			SetWhen("metadata", querybuilder.Val{V: input.Fields.Metadata}, func() bool {
+				return input.Fields.Metadata != nil
+			}).
+			SetWhen("target", querybuilder.Val{V: input.Fields.Target}, func() bool {
+				return input.Fields.Target != nil
+			}).
+			SetWhen("payload", querybuilder.Val{V: input.Fields.Payload}, func() bool {
+				return input.Fields.Payload != nil
+			}).
+			WhereWhen(querybuilder.EqualCheckExpr(querybuilder.ColumnExpr("uuid"), querybuilder.Val{V: input.Filters.UUID}),
+				func() bool {
+					return input.Filters.UUID != nil
+				},
+			).Build()
+
+		if err != nil {
+			return fmt.Errorf("failed to build update query: %w", err)
+		}
+
+		batch.Queue(q, args...)
+	}
+
+	tx, err := loadTxFromCtx(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to load transaction from ctx: %w", err)
+	}
+
+	if err := r.wrappedSendBatch(ctx, tx, &batch).Close(); err != nil {
+		return fmt.Errorf("failed to bulk update dispatches: %w", err)
+	}
+
+	return nil
+}
