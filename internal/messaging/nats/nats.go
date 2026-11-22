@@ -21,6 +21,7 @@ func (c *NATSJetstream) Produce(
 	destination messaging.Destination,
 	data []byte,
 ) error {
+	// ignore ACK for now
 	_, err := c.js.Publish(ctx, destination.Topic, data)
 	if err != nil {
 		return fmt.Errorf("failed to publish to stream %s: %w", destination.Topic, err)
