@@ -9,9 +9,9 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/nats-io/nats.go/jetstream"
 	natscontract "github.com/terabiome/core/internal/contracts/nats"
 	yamlcontracts "github.com/terabiome/core/internal/contracts/yaml"
+	"github.com/terabiome/core/internal/messaging"
 	"github.com/terabiome/core/internal/models"
 	"github.com/terabiome/core/internal/repositories"
 	"github.com/terabiome/core/pkg/helpers"
@@ -23,20 +23,20 @@ type Dispatch struct {
 	baseService
 	uowRepository      UnitOfWorkRepository
 	dispatchRepository DispatchRepository
-	jetstream          jetstream.JetStream
+	producer           messaging.Producer
 }
 
 func NewDispatch(
 	txManager TransactionManager,
 	uowRepo UnitOfWorkRepository,
 	dispatchRepo DispatchRepository,
-	jetstream jetstream.JetStream,
+	producer messaging.Producer,
 ) *Dispatch {
 	return &Dispatch{
 		baseService:        newBaseService(txManager),
 		uowRepository:      uowRepo,
 		dispatchRepository: dispatchRepo,
-		jetstream:          jetstream,
+		producer:           producer,
 	}
 }
 
@@ -297,7 +297,7 @@ func (s *Dispatch) ProcessBookedDispatches(ctx context.Context, limit int) error
 			// Publish -> if err -> if dial err -> fine, if ambiguous -> pray
 			// this unfortunately groups successful dispatches with completed ones
 			// to simplify things, mark dispatch as AMBIGUOUS, can think of a more granular approach later
-			publishErr := publishFanOut(ctx, s.jetstream, topics, envelopeBlob)
+			publishErr := s.publishFanOut(ctx, topics, envelopeBlob)
 			if publishErr != nil {
 				subErr := fmt.Errorf("failed to publish dispatch envelope for dispatch uuid=%v: %w", dispatch.UUID, resolveErr)
 				updateErr := s.dispatchRepository.Update(ctx, repositories.DispatchUpdateInput{
@@ -342,6 +342,25 @@ func (s *Dispatch) ProcessBookedDispatches(ctx context.Context, limit int) error
 	return errors.Join(surfacingError, txErr)
 }
 
+// move this somewhere later
+// can abstract [jetstream.Jetstream] but not recommended for now
+func (s *Dispatch) publishFanOut(ctx context.Context, topics []string, data []byte) error {
+	g, ctx := errgroup.WithContext(ctx)
+	g.SetLimit(4) // magic number, define this in goroutine pool later
+
+	for _, topic := range topics {
+		g.Go(func() error {
+			err := s.producer.Produce(ctx, messaging.Destination{Topic: topic}, data)
+			if err != nil {
+				return fmt.Errorf("failed to produce to %s: %w", topic, err)
+			}
+			return nil
+		})
+	}
+
+	return g.Wait()
+}
+
 // need to move this somewhere, but put it here for now
 func resolveTopics(target json.RawMessage) ([]string, error) {
 	targetYAML, err := helpers.JSON().Unmarshal[yamlcontracts.UnitOfWorkTarget](target)
@@ -350,25 +369,4 @@ func resolveTopics(target json.RawMessage) ([]string, error) {
 	}
 	log.Println("ignore all but topic matching (deliberate)")
 	return targetYAML.Topics, nil
-}
-
-// move this somewhere later
-// can abstract [jetstream.Jetstream] but not recommended for now
-func publishFanOut(ctx context.Context, js jetstream.JetStream, subjects []string, data []byte) error {
-	g, ctx := errgroup.WithContext(ctx)
-	g.SetLimit(4) // magic number, define this in goroutine pool later
-
-	for _, subj := range subjects {
-		subj := subj
-		g.Go(func() error {
-			ack, err := js.Publish(ctx, subj, data)
-			if err != nil {
-				return fmt.Errorf("failed to publish to %s: %w", subj, err)
-			}
-			_ = ack
-			return nil
-		})
-	}
-
-	return g.Wait()
 }
