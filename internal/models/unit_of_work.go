@@ -18,8 +18,11 @@ type UnitOfWork struct {
 type DispatchStatus string
 
 const (
-	DispatchStatusNew    DispatchStatus = "NEW"
-	DispatchStatusStaged DispatchStatus = "STAGED"
+	DispatchStatusNew        DispatchStatus = "NEW"
+	DispatchStatusStaged     DispatchStatus = "STAGED"
+	DispatchStatusFailed     DispatchStatus = "FAILED"
+	DispatchStatusAmbiguous  DispatchStatus = "AMBIGUOUS"
+	DispatchStatusDispatched DispatchStatus = "DISPATCHED"
 )
 
 // Dispatch represents a per-target assignment.
