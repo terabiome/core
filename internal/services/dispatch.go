@@ -9,6 +9,7 @@ import (
 	"time"
 	"uuid"
 
+	"github.com/nats-io/nats.go/jetstream"
 	yamlcontracts "github.com/terabiome/core/internal/contracts/yaml"
 	"github.com/terabiome/core/internal/models"
 	"github.com/terabiome/core/internal/repositories"
@@ -20,17 +21,20 @@ type Dispatch struct {
 	baseService
 	uowRepository      UnitOfWorkRepository
 	dispatchRepository DispatchRepository
+	jetstream          jetstream.JetStream
 }
 
 func NewDispatch(
 	txManager TransactionManager,
 	uowRepo UnitOfWorkRepository,
 	dispatchRepo DispatchRepository,
+	jetstream jetstream.JetStream,
 ) *Dispatch {
 	return &Dispatch{
 		baseService:        newBaseService(txManager),
 		uowRepository:      uowRepo,
 		dispatchRepository: dispatchRepo,
+		jetstream:          jetstream,
 	}
 }
 
