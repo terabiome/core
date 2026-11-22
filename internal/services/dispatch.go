@@ -10,11 +10,13 @@ import (
 	"uuid"
 
 	"github.com/nats-io/nats.go/jetstream"
+	natscontract "github.com/terabiome/core/internal/contracts/nats"
 	yamlcontracts "github.com/terabiome/core/internal/contracts/yaml"
 	"github.com/terabiome/core/internal/models"
 	"github.com/terabiome/core/internal/repositories"
 	"github.com/terabiome/core/pkg/helpers"
 	"go.yaml.in/yaml/v4"
+	"golang.org/x/sync/errgroup"
 )
 
 type Dispatch struct {
@@ -186,4 +188,187 @@ func (s *Dispatch) BookDispatches(ctx context.Context, limit int) error {
 		return nil
 	})
 	return txErr
+}
+
+// this is long ass method, do something with it later
+// TODO
+// TODO
+// TODO
+// TODO
+// TODO
+// TODO
+// TODO
+func (s *Dispatch) ProcessBookedDispatches(ctx context.Context, limit int) error {
+	// rule: do not allow retry on FAILED dispatch record
+	var surfacingError error
+	txErr := s.txManager.Wrap(ctx, func(ctx context.Context) error {
+		// sweep STAGED records (skip if locked)
+		dispatchFilterOutput, err := s.dispatchRepository.FilterByStatus(ctx, models.DispatchStatusStaged, limit)
+		if err != nil {
+			return fmt.Errorf("failed to get staged dispatches: %w", err)
+		}
+
+		for _, dispatch := range dispatchFilterOutput.Records {
+			// Unmarshal -> if err -> mark as FAILED
+			dispatchMetadata, marshalErr := helpers.JSON().Unmarshal[map[string]any](dispatch.Metadata)
+			if marshalErr != nil {
+				subErr := fmt.Errorf("failed to deserialize dispatch metadata of uuid=%v: %w",
+					dispatch.UUID, marshalErr,
+				)
+				updateErr := s.dispatchRepository.Update(ctx, repositories.DispatchUpdateInput{
+					Filters: repositories.DispatchUpdateFilters{
+						UUID: &dispatch.UUID,
+					},
+					Fields: repositories.DispatchUpdateFields{
+						Status: models.DispatchStatusFailed,
+					},
+				})
+				if updateErr != nil {
+					subErr = errors.Join(subErr, fmt.Errorf("failed to update dispatch status to FAILED: %w", updateErr))
+				}
+				err = errors.Join(err, subErr)
+				continue
+			}
+
+			envelopeBlob, marshalErr := json.Marshal(natscontract.DispatchEnvelope{
+				Metadata: helpers.Map().ImmutableMerge(dispatchMetadata, map[string]any{
+					"dispatch_uuid": dispatch.UUID,
+					"uow_uuid":      dispatch.UOWUUID,
+					"target":        dispatch.Target, // for workers wondering why it gets the message lol
+				}),
+				Payload: dispatch.Payload,
+			})
+			if marshalErr != nil {
+				subErr := fmt.Errorf("failed to serialize NATS envelope for dispatch uuid=%v: %w",
+					dispatch.UUID, marshalErr,
+				)
+				updateErr := s.dispatchRepository.Update(ctx, repositories.DispatchUpdateInput{
+					Filters: repositories.DispatchUpdateFilters{
+						UUID: &dispatch.UUID,
+					},
+					Fields: repositories.DispatchUpdateFields{
+						Status: models.DispatchStatusFailed,
+					},
+				})
+				if updateErr != nil {
+					subErr = errors.Join(subErr, fmt.Errorf("failed to update dispatch status to FAILED: %w", updateErr))
+				}
+				err = errors.Join(err, subErr)
+				continue
+			}
+
+			// fact check: does it reach deadline ?
+			dispatchUnixDeadline, isSet, canCast := helpers.Map().GetInt64(dispatchMetadata, "dispatch_key_deadline")
+			if !isSet {
+				dispatchUnixDeadline = time.Now().Add(120 * time.Second).UTC().UnixMilli()
+				dispatchMetadata["dispatch_key_deadline"] = dispatchUnixDeadline
+			} else if !canCast {
+				// a bigger issue -> log ERROR and return error, let user deal with this
+				log.Printf("could not cast dispatch_deadline for dispatch uuid=%v to milli unix, ignored, please check\n", dispatch.UUID)
+				err = errors.Join(err, fmt.Errorf("failed to cast dispatch_deadline of uuid=%v", dispatch.UUID))
+				continue
+			} else if (time.Now().UTC().UnixMilli() - dispatchUnixDeadline) < 2000 {
+				// exceed deadline, or approaching by 2s
+				// can mark as TIMED_OUT if pre-dispatch
+				// mark as AMBIGUOUS just to double sure: e.g. dispatch failed midway but post Dial, dispatched but failed to update DB.
+				// note: not logging as error, coz we expect this, only log if we fail to transition its status to AMBIGUOUS
+				log.Printf("exceed/too close to deadline for dispatch uuid=%v to mili unix, marking as AMBIGUOUS\n", dispatch.UUID)
+				updateErr := s.dispatchRepository.Update(ctx, repositories.DispatchUpdateInput{
+					Filters: repositories.DispatchUpdateFilters{
+						UUID: &dispatch.UUID,
+					},
+					Fields: repositories.DispatchUpdateFields{
+						Status: models.DispatchStatusAmbiguous,
+					},
+				})
+				if updateErr != nil {
+					err = errors.Join(err, fmt.Errorf("failed to update dispatch status to AMBIGUOUS: %w", updateErr))
+				}
+				continue
+			}
+
+			// think of this more
+			topics, resolveErr := resolveTopics(dispatch.Target)
+			if resolveErr != nil {
+				err = errors.Join(err, fmt.Errorf("failed to resolve topics for dispatch uuid=%v: %w", dispatch.UUID, resolveErr))
+				continue
+			}
+
+			// Publish -> if err -> if dial err -> fine, if ambiguous -> pray
+			// this unfortunately groups successful dispatches with completed ones
+			// to simplify things, mark dispatch as AMBIGUOUS, can think of a more granular approach later
+			publishErr := publishFanOut(ctx, s.jetstream, topics, envelopeBlob)
+			if publishErr != nil {
+				subErr := fmt.Errorf("failed to publish dispatch envelope for dispatch uuid=%v: %w", dispatch.UUID, resolveErr)
+				updateErr := s.dispatchRepository.Update(ctx, repositories.DispatchUpdateInput{
+					Filters: repositories.DispatchUpdateFilters{
+						UUID: &dispatch.UUID,
+					},
+					Fields: repositories.DispatchUpdateFields{
+						Status: models.DispatchStatusAmbiguous,
+					},
+				})
+				if updateErr != nil {
+					subErr = errors.Join(subErr, fmt.Errorf("failed to update dispatch status to AMBIGUOUS: %w", updateErr))
+				}
+				err = errors.Join(err, subErr)
+				continue
+			}
+
+			// mark as DISPATCHED -> if err -> something BIG happened -> log error immediately
+			updateErr := s.dispatchRepository.Update(ctx, repositories.DispatchUpdateInput{
+				Filters: repositories.DispatchUpdateFilters{
+					UUID: &dispatch.UUID,
+				},
+				Fields: repositories.DispatchUpdateFields{
+					Status: models.DispatchStatusDispatched,
+				},
+			})
+			if updateErr != nil {
+				err = errors.Join(err, fmt.Errorf("failed to update dispatch status to DISPATCHED: %w", updateErr))
+				continue
+			}
+		}
+
+		if err != nil {
+			// improvement can be inspecting the error in error tree and locate for hint to rollback as a whole
+			// tolerate at this point, just commit whatever we have
+			surfacingError = err
+		}
+
+		return nil
+	})
+
+	return errors.Join(surfacingError, txErr)
+}
+
+// need to move this somewhere, but put it here for now
+func resolveTopics(target json.RawMessage) ([]string, error) {
+	targetYAML, err := helpers.JSON().Unmarshal[yamlcontracts.UnitOfWorkTarget](target)
+	if err != nil {
+		return nil, fmt.Errorf("failed to deserialize UOW target to YAML Go struct: %w", err)
+	}
+	log.Println("ignore all but topic matching (deliberate)")
+	return targetYAML.Topics, nil
+}
+
+// move this somewhere later
+// can abstract [jetstream.Jetstream] but not recommended for now
+func publishFanOut(ctx context.Context, js jetstream.JetStream, subjects []string, data []byte) error {
+	g, ctx := errgroup.WithContext(ctx)
+	g.SetLimit(4) // magic number, define this in goroutine pool later
+
+	for _, subj := range subjects {
+		subj := subj
+		g.Go(func() error {
+			ack, err := js.Publish(ctx, subj, data)
+			if err != nil {
+				return fmt.Errorf("failed to publish to %s: %w", subj, err)
+			}
+			_ = ack
+			return nil
+		})
+	}
+
+	return g.Wait()
 }

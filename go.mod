@@ -8,6 +8,7 @@ require (
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/nats-io/nats.go v1.54.0
 	go.yaml.in/yaml/v4 v4.0.0-rc.6
+	golang.org/x/sync v0.25.0
 )
 
 require (
@@ -22,7 +23,6 @@ require (
 	github.com/nats-io/nkeys v0.4.16 // indirect
 	github.com/nats-io/nuid v1.0.1 // indirect
 	golang.org/x/crypto v0.57.0 // indirect
-	golang.org/x/sync v0.23.0 // indirect
 	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/text v0.42.0 // indirect
 )
