@@ -35,6 +35,7 @@ type UnitOfWork struct {
 type UnitOfWorkTarget struct {
 	Labels map[string]string `yaml:"labels"`
 	IDs    []string          `yaml:"ids"`
+	Topics []string          `yaml:"topics"` // pure NATS topic routing
 }
 
 // UnitOfWorkSequence is part of UnitOfWork, representing logical grouping of linear execution steps.
