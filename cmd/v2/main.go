@@ -76,6 +76,11 @@ func (i *cliInput) Parse() error {
 }
 
 func processShellSubcommand(ctx context.Context, shellInput shellCLIInput) error {
+	// injectable dependencies live here
+	if err := singletons.Init(); err != nil {
+		log.Fatalf("failed to initialize singletons: %v\n", err)
+	}
+
 	content, err := os.ReadFile(shellInput.YAMLConfigPath)
 	if err != nil {
 		if castedErr, ok := err.(*os.PathError); ok {
@@ -114,9 +119,6 @@ func main() {
 	if err := cliInput.Parse(); err != nil {
 		log.Fatalf("failed to parse argument flags: %v\n", err)
 	}
-
-	// injectable dependencies live here
-	singletons.Init()
 
 	// Ctrl + C or something to stop the command halfway
 	mainCtx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
