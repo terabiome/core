@@ -12,6 +12,10 @@ type TxManager struct {
 	pool *pgxpool.Pool
 }
 
+func NewTxManager(pool *pgxpool.Pool) *TxManager {
+	return &TxManager{pool: pool}
+}
+
 // check this weird thing later about CHECKPOINT: https://pkg.go.dev/github.com/avito-tech/go-transaction-manager/trm/v2/drivers#SavePointCounter
 func (m *TxManager) Wrap(ctx context.Context, fn func(ctx context.Context) error) error {
 	// For now, assume there can be 1 transaction at a time. If exist -> reuse.
