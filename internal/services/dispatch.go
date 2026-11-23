@@ -144,10 +144,11 @@ func (s *Dispatch) BookDispatches(ctx context.Context, limit int) error {
 
 		// mark dispatch as STAGED
 		var dispatchUpdateInputBatch = make([]repositories.DispatchUpdateInput, 0, len(dispatchFilterOutput.Records))
+		var bookErr error
 		for _, dispatchFilterRecord := range dispatchFilterOutput.Records {
-			metadataMap, err := helpers.JSON().Unmarshal[map[string]any](dispatchFilterRecord.Metadata)
-			if err != nil {
-				err = errors.Join(err, fmt.Errorf("failed to deserialize metadata from [json.RawMessage] to [%T]: %w", metadataMap, err))
+			metadataMap, unmarshalErr := helpers.JSON().Unmarshal[map[string]any](dispatchFilterRecord.Metadata)
+			if unmarshalErr != nil {
+				bookErr = errors.Join(bookErr, fmt.Errorf("failed to deserialize metadata from [json.RawMessage] to [%T]: %w", metadataMap, unmarshalErr))
 				continue
 			}
 
@@ -163,11 +164,12 @@ func (s *Dispatch) BookDispatches(ctx context.Context, limit int) error {
 				}
 			}
 
-			dispatchFilterRecord.Metadata, err = json.Marshal(helpers.Map().ImmutableMerge(metadataMap, subMap))
-			if err != nil {
-				err = errors.Join(err, fmt.Errorf("failed to serialize metadata to [json.RawMessage]: %w", err))
+			metadata, marshalErr := json.Marshal(helpers.Map().ImmutableMerge(metadataMap, subMap))
+			if marshalErr != nil {
+				bookErr = errors.Join(bookErr, fmt.Errorf("failed to serialize metadata to [json.RawMessage]: %w", marshalErr))
 				continue
 			}
+			dispatchFilterRecord.Metadata = metadata
 
 			dispatchUpdateInputBatch = append(dispatchUpdateInputBatch, repositories.DispatchUpdateInput{
 				Filters: repositories.DispatchUpdateFilters{
@@ -178,6 +180,10 @@ func (s *Dispatch) BookDispatches(ctx context.Context, limit int) error {
 					Status:   models.DispatchStatusStaged,
 				},
 			})
+		}
+
+		if bookErr != nil {
+			return bookErr
 		}
 
 		// assume this always sets [models.Dispatch.UpdatedAt]
@@ -299,7 +305,7 @@ func (s *Dispatch) ProcessBookedDispatches(ctx context.Context, limit int) error
 			// to simplify things, mark dispatch as AMBIGUOUS, can think of a more granular approach later
 			publishErr := s.publishFanOut(ctx, topics, envelopeBlob)
 			if publishErr != nil {
-				subErr := fmt.Errorf("failed to publish dispatch envelope for dispatch uuid=%v: %w", dispatch.UUID, resolveErr)
+				subErr := fmt.Errorf("failed to publish dispatch envelope for dispatch uuid=%v: %w", dispatch.UUID, publishErr)
 				updateErr := s.dispatchRepository.Update(ctx, repositories.DispatchUpdateInput{
 					Filters: repositories.DispatchUpdateFilters{
 						UUID: &dispatch.UUID,
