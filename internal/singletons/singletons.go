@@ -1,6 +1,7 @@
 package singletons
 
 import (
+	"errors"
 	"fmt"
 	"log"
 
@@ -35,17 +36,16 @@ type MessagingWrapper struct {
 
 var sings *Singletons
 
+func InitLogger() {
+	logging.InitGlobalSlogger(config.Get().Logger)
+}
+
 func Init() error {
 	log.Println("Constructing singletons")
+	InitLogger()
 
-	logging.InitGlobalSlogger(config.Get().Logger)
-
-	js, err := nats.NewNATSJetstream()
-	if err != nil {
-		return fmt.Errorf("failed to setup NATS Jetstream wrapper: %w", err)
-	}
-	messagingWrapper := MessagingWrapper{
-		NATSJetstream: js,
+	if err := database.Init(); err != nil {
+		return fmt.Errorf("failed to initialize database: %w", err)
 	}
 
 	// hardcode postgresql for now
@@ -56,28 +56,38 @@ func Init() error {
 		DispatchRepository:   postgresql.NewDispatchPostgresRepository(pool),
 	}
 
-	serviceWrapper := ServiceWrapper{
+	sings = &Singletons{
+		TxManager:         txManager,
+		RepositoryWrapper: repositoryWrapper,
 		UnitOfWorkService: services.NewUnitOfWork(
 			txManager,
 			repositoryWrapper.UnitOfWorkRepository,
 		),
-		DispatchService: services.NewDispatch(
-			txManager,
-			repositoryWrapper.UnitOfWorkRepository,
-			repositoryWrapper.DispatchRepository,
-			messagingWrapper.NATSJetstream,
-		),
 	}
 
-	sings = &Singletons{
-		TxManager:         txManager,
-		MessagingWrapper:  messagingWrapper,
-		RepositoryWrapper: repositoryWrapper,
-		ServiceWrapper:    serviceWrapper,
-	}
-
-	// showing off
 	logging.GetGlobalSlogger().Info("Constructed singletons")
+	return nil
+}
+
+// InitDispatch wires NATS and the dispatch batch service. Call after Init.
+// Do not call this from the API server until a worker loop in that process actually sweeps dispatches.
+func InitDispatch() error {
+	if sings == nil || sings.TxManager == nil || sings.UnitOfWorkRepository == nil || sings.DispatchRepository == nil {
+		return errors.New("singletons.Init must run before InitDispatch")
+	}
+
+	js, err := nats.NewNATSJetstream()
+	if err != nil {
+		return fmt.Errorf("failed to setup NATS Jetstream wrapper: %w", err)
+	}
+
+	sings.MessagingWrapper = MessagingWrapper{NATSJetstream: js}
+	sings.DispatchService = services.NewDispatch(
+		sings.TxManager,
+		sings.UnitOfWorkRepository,
+		sings.DispatchRepository,
+		js,
+	)
 	return nil
 }
 

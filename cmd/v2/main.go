@@ -5,7 +5,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io/fs"
 	"log"
 	"net/http"
 	"os"
@@ -94,20 +93,13 @@ func (i *cliInput) Parse() error {
 }
 
 func processShellSubcommand(ctx context.Context, shellInput shellCLIInput) error {
-	// injectable dependencies live here
-	if err := singletons.Init(); err != nil {
-		log.Fatalf("failed to initialize singletons: %v\n", err)
-	}
-
 	content, err := os.ReadFile(shellInput.YAMLConfigPath)
 	if err != nil {
-		if castedErr, ok := err.(*os.PathError); ok {
-			switch castedErr {
-			case fs.ErrNotExist:
-				return fmt.Errorf("%s: file not found", errMsgFailedToReadYAMLConfig)
-			case fs.ErrPermission:
-				return fmt.Errorf("%s: unprivileged", errMsgFailedToReadYAMLConfig)
-			}
+		if errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("%s: file not found", errMsgFailedToReadYAMLConfig)
+		}
+		if errors.Is(err, os.ErrPermission) {
+			return fmt.Errorf("%s: unprivileged", errMsgFailedToReadYAMLConfig)
 		}
 		return fmt.Errorf("%s: %w", errMsgFailedToReadYAMLConfig, err)
 	}
@@ -129,15 +121,10 @@ func processShellSubcommand(ctx context.Context, shellInput shellCLIInput) error
 }
 
 func processAPISubcommand(ctx context.Context, apiInput apiCLIInput) error {
-	if err := database.Init(); err != nil {
-		log.Fatalf("failed to initialize database: %v\n", err)
+	if err := singletons.Init(); err != nil {
+		return fmt.Errorf("failed to initialize singletons: %w", err)
 	}
 	defer database.Close()
-
-	// injectable dependencies live here
-	if err := singletons.Init(); err != nil {
-		log.Fatalf("failed to initialize singletons: %v\n", err)
-	}
 
 	server := &http.Server{
 		Addr:              apiInput.Addr,
@@ -174,6 +161,8 @@ func main() {
 	if err := cliInput.Parse(); err != nil {
 		log.Fatalf("failed to parse argument flags: %v\n", err)
 	}
+
+	singletons.InitLogger()
 
 	// Ctrl + C or something to stop the command halfway
 	mainCtx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
