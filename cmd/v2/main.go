@@ -106,10 +106,6 @@ func processShellSubcommand(ctx context.Context, shellInput shellCLIInput) error
 }
 
 func main() {
-	if os.Getuid() != 0 {
-		log.Fatalln("this script must be run as root/sudo")
-	}
-
 	if len(os.Args) < 2 {
 		log.Fatalln("expect subcommand, only 1 argument")
 	}
@@ -129,6 +125,9 @@ func main() {
 	var err error
 	switch cliInput.subcommand {
 	case shellSubcommand:
+		if os.Getuid() != 0 {
+			log.Fatalln("shell subcommand must be run as root/sudo")
+		}
 		err = processShellSubcommand(mainCtx, cliInput.shell)
 	}
 
