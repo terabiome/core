@@ -33,15 +33,14 @@ type responseCallback func()
 func ParseBodyAndHandleError(writer http.ResponseWriter, request *http.Request, target any, requireBody bool) (responseCallback, error) {
 	var err error
 	if requireBody {
-		// decode and check
-		acceptType := request.Header.Get("Accept")
-		switch acceptType {
+		contentType := request.Header.Get("Content-Type")
+		switch contentType {
 		case string(ContentTypeJSON):
 			err = json.NewDecoder(request.Body).Decode(target)
-		case string(ContentTypeYAML):
+		case string(ContentTypeYAML), "application/x-yaml", "text/yaml":
 			err = yaml.NewDecoder(request.Body).Decode(target)
 		default:
-			err = fmt.Errorf("unsupported HTTP header Accept: %s", acceptType)
+			err = fmt.Errorf("unsupported HTTP header Content-Type: %s", contentType)
 		}
 		// read validator tag
 		if v, ok := target.(contracts.Validatable); err == nil && ok {
