@@ -57,6 +57,10 @@ func Init() error {
 	}
 
 	serviceWrapper := ServiceWrapper{
+		UnitOfWorkService: services.NewUnitOfWork(
+			txManager,
+			repositoryWrapper.UnitOfWorkRepository,
+		),
 		DispatchService: services.NewDispatch(
 			txManager,
 			repositoryWrapper.UnitOfWorkRepository,
