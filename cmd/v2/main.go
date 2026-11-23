@@ -7,12 +7,17 @@ import (
 	"fmt"
 	"io/fs"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/go-playground/validator/v10"
+	apihttp "github.com/terabiome/core/internal/api"
 	yamlcontracts "github.com/terabiome/core/internal/contracts/yaml"
+	"github.com/terabiome/core/internal/database"
+	httphandlers "github.com/terabiome/core/internal/handlers/http"
 	"github.com/terabiome/core/internal/runner"
 	"github.com/terabiome/core/internal/singletons"
 	"github.com/terabiome/core/pkg/logging"
@@ -37,9 +42,14 @@ type shellCLIInput struct {
 	YAMLConfigPath string `validate:"required"`
 }
 
+type apiCLIInput struct {
+	Addr string
+}
+
 type cliInput struct {
 	subcommand subcommand
 	shell      shellCLIInput
+	api        apiCLIInput
 }
 
 func NewCLIInput() *cliInput {
@@ -54,6 +64,9 @@ func (i *cliInput) Parse() error {
 	shellCmd := flag.NewFlagSet(string(shellSubcommand), flag.ExitOnError)
 	shellCmd.StringVar(&i.shell.YAMLConfigPath, "yaml-config-path", "", "Path to YAML config file")
 
+	apiCmd := flag.NewFlagSet(string(apiSubcommand), flag.ExitOnError)
+	apiCmd.StringVar(&i.api.Addr, "addr", ":8080", "Address for the HTTP API")
+
 	parseAndValidateFn := func(fs *flag.FlagSet, sPtr any) error {
 		return errors.Join(
 			fs.Parse(os.Args[2:]),
@@ -66,6 +79,11 @@ func (i *cliInput) Parse() error {
 	case shellSubcommand:
 		i.subcommand = shellSubcommand
 		if err := parseAndValidateFn(shellCmd, &i.shell); err != nil {
+			return err
+		}
+	case apiSubcommand:
+		i.subcommand = apiSubcommand
+		if err := parseAndValidateFn(apiCmd, &i.api); err != nil {
 			return err
 		}
 	default:
@@ -110,6 +128,43 @@ func processShellSubcommand(ctx context.Context, shellInput shellCLIInput) error
 	return shellRunner.Run(ctx, uow)
 }
 
+func processAPISubcommand(ctx context.Context, apiInput apiCLIInput) error {
+	if err := database.Init(); err != nil {
+		log.Fatalf("failed to initialize database: %v\n", err)
+	}
+	defer database.Close()
+
+	// injectable dependencies live here
+	if err := singletons.Init(); err != nil {
+		log.Fatalf("failed to initialize singletons: %v\n", err)
+	}
+
+	server := &http.Server{
+		Addr:              apiInput.Addr,
+		Handler:           apihttp.SetupMux(httphandlers.NewUnitOfWork(singletons.Get().UnitOfWorkService)),
+		ReadHeaderTimeout: 5 * time.Second,
+	}
+
+	errCh := make(chan error, 1)
+	go func() {
+		logging.GetGlobalSlogger().Info("api listening", "addr", apiInput.Addr)
+		err := server.ListenAndServe()
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			errCh <- err
+		}
+		close(errCh)
+	}()
+
+	select {
+	case <-ctx.Done():
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		return server.Shutdown(shutdownCtx)
+	case err := <-errCh:
+		return err
+	}
+}
+
 func main() {
 	if len(os.Args) < 2 {
 		log.Fatalln("expect subcommand, only 1 argument")
@@ -131,6 +186,8 @@ func main() {
 			log.Fatalln("shell subcommand must be run as root/sudo")
 		}
 		err = processShellSubcommand(mainCtx, cliInput.shell)
+	case apiSubcommand:
+		err = processAPISubcommand(mainCtx, cliInput.api)
 	}
 
 	if err != nil {

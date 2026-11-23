@@ -4,7 +4,6 @@ import (
 	"net/http"
 
 	httphandlers "github.com/terabiome/core/internal/handlers/http"
-	"github.com/terabiome/core/internal/services"
 )
 
 // Router wraps http.ServeMux and provides route setup
@@ -28,16 +27,15 @@ func (router *Router) V1Handler(
 	return mux
 }
 
-// SetupMux creates and configures the main router
-func SetupMux() *Router {
+// SetupMux creates and configures the main router.
+// Dispatch is a background batch job and is intentionally not mounted here.
+func SetupMux(uowHandlers *httphandlers.UnitOfWork) *Router {
 	router := Router{http.NewServeMux()}
 	router.ServeMux.HandleFunc("/heartbeat", func(writer http.ResponseWriter, request *http.Request) {
 		writer.WriteHeader(200)
 		writer.Write([]byte("OK"))
 	})
 
-	// TODO: wire the dependencies into nil block below
-	uowHandlers := httphandlers.NewUnitOfWork(services.NewUnitOfWork(nil, nil))
 	router.ServeMux.Handle("/api/v1/", http.StripPrefix("/api/v1", router.V1Handler(
 		uowHandlers,
 	)))
