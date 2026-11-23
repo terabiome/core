@@ -349,13 +349,15 @@ func (s *Dispatch) publishFanOut(ctx context.Context, topics []string, data []by
 	g.SetLimit(4) // magic number, define this in goroutine pool later
 
 	for _, topic := range topics {
-		g.Go(func() error {
-			err := s.producer.Produce(ctx, messaging.Destination{Topic: topic}, data)
-			if err != nil {
-				return fmt.Errorf("failed to produce to %s: %w", topic, err)
+		g.Go(func(topic string) func() error {
+			return func() error {
+				err := s.producer.Produce(ctx, messaging.Destination{Topic: topic}, data)
+				if err != nil {
+					return fmt.Errorf("failed to produce to %s: %w", topic, err)
+				}
+				return nil
 			}
-			return nil
-		})
+		}(topic))
 	}
 
 	return g.Wait()
