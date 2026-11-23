@@ -267,7 +267,7 @@ func (s *Dispatch) ProcessBookedDispatches(ctx context.Context, limit int) error
 				log.Printf("could not cast dispatch_deadline for dispatch uuid=%v to milli unix, ignored, please check\n", dispatch.UUID)
 				err = errors.Join(err, fmt.Errorf("failed to cast dispatch_deadline of uuid=%v", dispatch.UUID))
 				continue
-			} else if (time.Now().UTC().UnixMilli() - dispatchUnixDeadline) < 2000 {
+			} else if dispatchUnixDeadline-time.Now().UTC().UnixMilli() < 2000 {
 				// exceed deadline, or approaching by 2s
 				// can mark as TIMED_OUT if pre-dispatch
 				// mark as AMBIGUOUS just to double sure: e.g. dispatch failed midway but post Dial, dispatched but failed to update DB.
