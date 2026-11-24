@@ -8,6 +8,7 @@ import (
 	kerneloperations "github.com/terabiome/core/internal/operations/kernel"
 	shelloperations "github.com/terabiome/core/internal/operations/shell"
 	systemdoperations "github.com/terabiome/core/internal/operations/systemd"
+	operationspkg "github.com/terabiome/core/pkg/operations"
 )
 
 var registry = OperationRegistry{
@@ -19,7 +20,7 @@ var registry = OperationRegistry{
 	string(operations.OperationNameK3sInstallBinary):             k3soperations.NewInstallBinaryOperation,
 }
 
-func Get(name string) (operations.Operation, error) {
+func Get(name string) (operationspkg.Operation, error) {
 	factory, exists := registry[name]
 	if !exists {
 		return nil, fmt.Errorf("task '%s' not found in registry", name)

@@ -8,16 +8,16 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/terabiome/core/internal/operations"
 	manifestcontracts "github.com/terabiome/core/pkg/contracts/manifest"
+	operationspkg "github.com/terabiome/core/pkg/operations"
 )
 
 type WorkflowExecutor struct {
-	env            *operations.OperationEnvironment
+	env            *operationspkg.OperationEnvironment
 	maxConcurrency int
 }
 
-func NewWorkflowExecutor(env *operations.OperationEnvironment, maxConcurrency int) *WorkflowExecutor {
+func NewWorkflowExecutor(env *operationspkg.OperationEnvironment, maxConcurrency int) *WorkflowExecutor {
 	if maxConcurrency <= 0 {
 		maxConcurrency = 4
 	}

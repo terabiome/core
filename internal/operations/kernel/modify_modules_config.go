@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-viper/mapstructure/v2"
 	"github.com/terabiome/core/internal/operations"
+	operationspkg "github.com/terabiome/core/pkg/operations"
 )
 
 type ModifyModulesConfigOperation struct {
@@ -23,7 +24,7 @@ func (op *ModifyModulesConfigOperation) Name() string {
 	return string(operations.OperationNameKernelModifyModulesConfig)
 }
 
-func (op *ModifyModulesConfigOperation) PreCheck(env *operations.OperationEnvironment) error {
+func (op *ModifyModulesConfigOperation) PreCheck(env *operationspkg.OperationEnvironment) error {
 	pathPattern := regexp.MustCompile(`^/etc/modules-load.d/[a-zA-Z0-9_\-]+\.conf$`)
 	for _, entry := range op.parameters.Entries {
 		if !pathPattern.MatchString(entry.Path) {
@@ -33,7 +34,7 @@ func (op *ModifyModulesConfigOperation) PreCheck(env *operations.OperationEnviro
 	return nil
 }
 
-func (op *ModifyModulesConfigOperation) Run(ctx context.Context, env *operations.OperationEnvironment) error {
+func (op *ModifyModulesConfigOperation) Run(ctx context.Context, env *operationspkg.OperationEnvironment) error {
 	// 1. Aggregate entries by file path
 	fileModules := make(map[string]map[string]bool)
 
@@ -92,6 +93,6 @@ func (op *ModifyModulesConfigOperation) SetParameters(parameters map[string]any)
 	return mapstructure.Decode(op.rawParameters, &op.parameters)
 }
 
-func NewModifyModulesConfigOperation() operations.Operation {
+func NewModifyModulesConfigOperation() operationspkg.Operation {
 	return &ModifyModulesConfigOperation{}
 }

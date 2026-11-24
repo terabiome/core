@@ -10,6 +10,7 @@ import (
 	"github.com/go-viper/mapstructure/v2"
 	"github.com/terabiome/core/internal/operations"
 	shellexecutors "github.com/terabiome/core/pkg/executors/shell"
+	operationspkg "github.com/terabiome/core/pkg/operations"
 )
 
 var whitelistedCommands = map[string][]regexp.Regexp{
@@ -24,13 +25,11 @@ type CmdOperation struct {
 	parameters    cmdParameters
 }
 
-// Name implements [operations.Operation].
 func (op *CmdOperation) Name() string {
 	return string(operations.OperationNameShellCmd)
 }
 
-// PreCheck implements [operations.Operation].
-func (op *CmdOperation) PreCheck(env *operations.OperationEnvironment) error {
+func (op *CmdOperation) PreCheck(env *operationspkg.OperationEnvironment) error {
 	regexes, exist := whitelistedCommands[op.parameters.Executable]
 	if !exist {
 		return fmt.Errorf("command is not allowed to run")
@@ -48,7 +47,6 @@ func (op *CmdOperation) PreCheck(env *operations.OperationEnvironment) error {
 	return nil
 }
 
-// SetParameters implements [operations.Operation].
 func (op *CmdOperation) SetParameters(parameters map[string]any) error {
 	op.rawParameters = parameters
 	if err := mapstructure.Decode(op.rawParameters, &op.parameters); err != nil {
@@ -77,8 +75,7 @@ func (op *CmdOperation) SetParameters(parameters map[string]any) error {
 	return nil
 }
 
-// Run implements [operations.Operation].
-func (op *CmdOperation) Run(ctx context.Context, env *operations.OperationEnvironment) error {
+func (op *CmdOperation) Run(ctx context.Context, env *operationspkg.OperationEnvironment) error {
 	cmdInput := shellexecutors.CommandInput{
 		Mode:   shellexecutors.ModeSync,
 		Stdout: env.Journaler,
@@ -101,6 +98,6 @@ func (op *CmdOperation) Run(ctx context.Context, env *operations.OperationEnviro
 	return nil
 }
 
-func NewCmdOperation() operations.Operation {
+func NewCmdOperation() operationspkg.Operation {
 	return &CmdOperation{}
 }

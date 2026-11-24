@@ -1,5 +1,7 @@
 package registry
 
-import "github.com/terabiome/core/internal/operations"
+import (
+	operationspkg "github.com/terabiome/core/pkg/operations"
+)
 
-type OperationRegistry map[string]func() operations.Operation
+type OperationRegistry map[string]func() operationspkg.Operation

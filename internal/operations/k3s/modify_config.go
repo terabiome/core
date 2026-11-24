@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-viper/mapstructure/v2"
 	"github.com/terabiome/core/internal/operations"
+	operationspkg "github.com/terabiome/core/pkg/operations"
 	"go.yaml.in/yaml/v4"
 )
 
@@ -22,7 +23,7 @@ func (op *ModifyConfigOperation) Name() string {
 	return string(operations.OperationNameK3sModifyConfig)
 }
 
-func (op *ModifyConfigOperation) PreCheck(env *operations.OperationEnvironment) error {
+func (op *ModifyConfigOperation) PreCheck(env *operationspkg.OperationEnvironment) error {
 	for _, entry := range op.parameters.Entries {
 		if entry.Path != defaultK3sConfigPath {
 			return fmt.Errorf("precheck failed: only %s is supported", defaultK3sConfigPath)
@@ -31,7 +32,7 @@ func (op *ModifyConfigOperation) PreCheck(env *operations.OperationEnvironment) 
 	return nil
 }
 
-func (op *ModifyConfigOperation) Run(ctx context.Context, env *operations.OperationEnvironment) error {
+func (op *ModifyConfigOperation) Run(ctx context.Context, env *operationspkg.OperationEnvironment) error {
 	for _, entry := range op.parameters.Entries {
 		dir := filepath.Dir(entry.Path)
 		if err := os.MkdirAll(dir, 0755); err != nil {
@@ -57,6 +58,6 @@ func (op *ModifyConfigOperation) SetParameters(parameters map[string]any) error 
 	return mapstructure.Decode(op.rawParameters, &op.parameters)
 }
 
-func NewModifyConfigOperation() operations.Operation {
+func NewModifyConfigOperation() operationspkg.Operation {
 	return &ModifyConfigOperation{}
 }

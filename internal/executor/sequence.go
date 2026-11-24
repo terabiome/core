@@ -4,17 +4,17 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/terabiome/core/internal/operations"
 	"github.com/terabiome/core/internal/registry"
 	manifestcontracts "github.com/terabiome/core/pkg/contracts/manifest"
+	operationspkg "github.com/terabiome/core/pkg/operations"
 )
 
 // SequenceExecutor is an intrinsic block that executes a single sequence of tasks.
 type SequenceExecutor struct {
-	env *operations.OperationEnvironment
+	env *operationspkg.OperationEnvironment
 }
 
-func NewSequenceExecutor(env *operations.OperationEnvironment) *SequenceExecutor {
+func NewSequenceExecutor(env *operationspkg.OperationEnvironment) *SequenceExecutor {
 	return &SequenceExecutor{env: env}
 }
 

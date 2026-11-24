@@ -8,11 +8,10 @@ import (
 	"github.com/terabiome/core/internal/executor"
 	"github.com/terabiome/core/internal/writers"
 	manifestcontracts "github.com/terabiome/core/pkg/contracts/manifest"
-
-	"github.com/terabiome/core/internal/models"
-	"github.com/terabiome/core/internal/operations"
 	shellexecutors "github.com/terabiome/core/pkg/executors/shell"
 	loggingpkg "github.com/terabiome/core/pkg/logging"
+	"github.com/terabiome/core/pkg/operations"
+	operationspkg "github.com/terabiome/core/pkg/operations"
 )
 
 type ShellRunner struct {
@@ -30,7 +29,6 @@ func NewShellRunner(
 }
 
 func (r *ShellRunner) Run(ctx context.Context, uow manifestcontracts.UnitOfWork) error {
-	// 1. Setup Local Environment
 	journaler, _ := writers.NewJournaler(writers.JournalerParameters{
 		MaxRecords:    50,
 		FlushInterval: 1 * time.Second,
@@ -45,20 +43,19 @@ func (r *ShellRunner) Run(ctx context.Context, uow manifestcontracts.UnitOfWork)
 	})
 	defer journaler.Close()
 
-	env := &operations.OperationEnvironment{
+	env := &operationspkg.OperationEnvironment{
 		NodeInfo:  r.probeNode(),
 		Journaler: journaler,
 		Executor:  shellexecutors.NewCommandExecutor(r.logger),
 	}
 
-	// 2. Execute using Intrinsic
 	wfExec := executor.NewWorkflowExecutor(env, r.maxConcurrency)
 	r.logger.InfoContext(ctx, "Starting local execution...")
 	return wfExec.ExecuteAsDAG(ctx, uow.Sequences)
 }
 
-func (r *ShellRunner) probeNode() models.NodeInfo {
-	return models.NodeInfo{
+func (r *ShellRunner) probeNode() operations.NodeInfo {
+	return operations.NodeInfo{
 		MachineID: "local-shell",
 		Arch:      runtime.GOARCH,
 		OS:        runtime.GOOS,

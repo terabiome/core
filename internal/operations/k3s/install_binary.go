@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-viper/mapstructure/v2"
 	"github.com/terabiome/core/internal/operations"
+	operationspkg "github.com/terabiome/core/pkg/operations"
 )
 
 type InstallBinaryOperation struct {
@@ -17,21 +18,18 @@ type InstallBinaryOperation struct {
 	parameters    installBinaryParameters
 }
 
-// Name implements [operations.Operation].
 func (op *InstallBinaryOperation) Name() string {
 	return string(operations.OperationNameK3sInstallBinary)
 }
 
-// PreCheck implements [operations.Operation].
-func (op *InstallBinaryOperation) PreCheck(env *operations.OperationEnvironment) error {
+func (op *InstallBinaryOperation) PreCheck(env *operationspkg.OperationEnvironment) error {
 	if op.parameters.Version == "" {
 		return fmt.Errorf("missing k3s version")
 	}
 	return nil
 }
 
-// Run implements [operations.Operation].
-func (op *InstallBinaryOperation) Run(ctx context.Context, env *operations.OperationEnvironment) error {
+func (op *InstallBinaryOperation) Run(ctx context.Context, env *operationspkg.OperationEnvironment) error {
 	var (
 		binaryName = "k3s"
 		arch       = env.NodeInfo.Arch
@@ -84,12 +82,11 @@ func (op *InstallBinaryOperation) Run(ctx context.Context, env *operations.Opera
 	return nil
 }
 
-// SetParameters implements [operations.Operation].
 func (op *InstallBinaryOperation) SetParameters(parameters map[string]any) error {
 	op.rawParameters = parameters
 	return mapstructure.Decode(op.rawParameters, &op.parameters)
 }
 
-func NewInstallBinaryOperation() operations.Operation {
+func NewInstallBinaryOperation() operationspkg.Operation {
 	return &InstallBinaryOperation{}
 }
