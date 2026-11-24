@@ -121,11 +121,6 @@ func processShellSubcommand(ctx context.Context, shellInput shellCLIInput) error
 	return shellRunner.Run(ctx, uow)
 }
 
-const (
-	dispatchSweepLimit = 32
-	dispatchSweepEvery = 5 * time.Second
-)
-
 func processAPISubcommand(ctx context.Context, apiInput apiCLIInput) error {
 	if err := singletons.Init(); err != nil {
 		return fmt.Errorf("failed to initialize singletons: %w", err)
@@ -141,6 +136,7 @@ func processAPISubcommand(ctx context.Context, apiInput apiCLIInput) error {
 		}
 	}()
 
+	dispatchCfg := config.Get().Dispatch
 	sweepCtx, stopSweep := context.WithCancel(ctx)
 	defer stopSweep()
 	sweepDone := make(chan struct{})
@@ -148,9 +144,9 @@ func processAPISubcommand(ctx context.Context, apiInput apiCLIInput) error {
 		defer close(sweepDone)
 		singletons.Get().DispatchService.RunSweep(
 			sweepCtx,
-			dispatchSweepLimit,
-			dispatchSweepEvery,
-			config.Get().Dispatch.SweepPassTimeout,
+			dispatchCfg.SweepLimit,
+			dispatchCfg.SweepInterval,
+			dispatchCfg.SweepPassTimeout,
 		)
 	}()
 
