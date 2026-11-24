@@ -196,41 +196,54 @@ func (s *Dispatch) BookDispatches(ctx context.Context, limit int) error {
 	return txErr
 }
 
-// this is long ass method, do something with it later
-// TODO
-// TODO
-// TODO
-// TODO
-// TODO
-// TODO
-// TODO
+type stagedPublish struct {
+	uuid     uuid.UUID
+	topics   []string
+	envelope []byte
+}
+
 func (s *Dispatch) ProcessBookedDispatches(ctx context.Context, limit int) error {
 	// rule: do not allow retry on FAILED dispatch record
+	// tx 1 claims rows and commits before any broker call, so the pool connection is not held across NATS.
+	// AMBIGUOUS is the claim: another sweeper will not select these STAGED rows, and a crash mid-publish stays ambiguous.
+	ready, claimErr := s.claimStagedForPublish(ctx, limit)
+	if claimErr != nil && len(ready) == 0 {
+		return claimErr
+	}
+
+	var publishErr error
+	dispatched := make([]uuid.UUID, 0, len(ready))
+	for _, job := range ready {
+		if err := s.publishFanOut(ctx, job.topics, job.envelope); err != nil {
+			// already claimed AMBIGUOUS; do not try to guess whether a subset of topics landed
+			publishErr = errors.Join(publishErr, fmt.Errorf("failed to publish dispatch envelope for dispatch uuid=%v: %w", job.uuid, err))
+			continue
+		}
+		dispatched = append(dispatched, job.uuid)
+	}
+
+	// tx 2 records only the publishes that returned success
+	markErr := s.markDispatched(ctx, dispatched)
+	return errors.Join(claimErr, publishErr, markErr)
+}
+
+func (s *Dispatch) claimStagedForPublish(ctx context.Context, limit int) ([]stagedPublish, error) {
+	var ready []stagedPublish
 	var surfacingError error
+
 	txErr := s.txManager.Wrap(ctx, func(ctx context.Context) error {
-		// sweep STAGED records (skip if locked)
 		dispatchFilterOutput, err := s.dispatchRepository.FilterByStatus(ctx, models.DispatchStatusStaged, limit)
 		if err != nil {
 			return fmt.Errorf("failed to get staged dispatches: %w", err)
 		}
 
 		for _, dispatch := range dispatchFilterOutput.Records {
-			// Unmarshal -> if err -> mark as FAILED
 			dispatchMetadata, marshalErr := helpers.JSON().Unmarshal[map[string]any](dispatch.Metadata)
 			if marshalErr != nil {
-				subErr := fmt.Errorf("failed to deserialize dispatch metadata of uuid=%v: %w",
-					dispatch.UUID, marshalErr,
-				)
-				updateErr := s.dispatchRepository.Update(ctx, repositories.DispatchUpdateInput{
-					Filters: repositories.DispatchUpdateFilters{
-						UUID: &dispatch.UUID,
-					},
-					Fields: repositories.DispatchUpdateFields{
-						Status: models.DispatchStatusFailed,
-					},
-				})
+				subErr := fmt.Errorf("failed to deserialize dispatch metadata of uuid=%v: %w", dispatch.UUID, marshalErr)
+				updateErr := s.markDispatchStatus(ctx, dispatch.UUID, models.DispatchStatusFailed)
 				if updateErr != nil {
-					subErr = errors.Join(subErr, fmt.Errorf("failed to update dispatch status to FAILED: %w", updateErr))
+					subErr = errors.Join(subErr, updateErr)
 				}
 				err = errors.Join(err, subErr)
 				continue
@@ -245,107 +258,93 @@ func (s *Dispatch) ProcessBookedDispatches(ctx context.Context, limit int) error
 				Payload: dispatch.Payload,
 			})
 			if marshalErr != nil {
-				subErr := fmt.Errorf("failed to serialize NATS envelope for dispatch uuid=%v: %w",
-					dispatch.UUID, marshalErr,
-				)
-				updateErr := s.dispatchRepository.Update(ctx, repositories.DispatchUpdateInput{
-					Filters: repositories.DispatchUpdateFilters{
-						UUID: &dispatch.UUID,
-					},
-					Fields: repositories.DispatchUpdateFields{
-						Status: models.DispatchStatusFailed,
-					},
-				})
+				subErr := fmt.Errorf("failed to serialize NATS envelope for dispatch uuid=%v: %w", dispatch.UUID, marshalErr)
+				updateErr := s.markDispatchStatus(ctx, dispatch.UUID, models.DispatchStatusFailed)
 				if updateErr != nil {
-					subErr = errors.Join(subErr, fmt.Errorf("failed to update dispatch status to FAILED: %w", updateErr))
+					subErr = errors.Join(subErr, updateErr)
 				}
 				err = errors.Join(err, subErr)
 				continue
 			}
 
-			// fact check: does it reach deadline ?
 			dispatchUnixDeadline, isSet, canCast := helpers.Map().GetInt64(dispatchMetadata, "dispatch_key_deadline")
 			if !isSet {
 				dispatchUnixDeadline = time.Now().Add(120 * time.Second).UTC().UnixMilli()
-				dispatchMetadata["dispatch_key_deadline"] = dispatchUnixDeadline
 			} else if !canCast {
-				// a bigger issue -> log ERROR and return error, let user deal with this
 				log.Printf("could not cast dispatch_deadline for dispatch uuid=%v to milli unix, ignored, please check\n", dispatch.UUID)
 				err = errors.Join(err, fmt.Errorf("failed to cast dispatch_deadline of uuid=%v", dispatch.UUID))
 				continue
 			} else if dispatchUnixDeadline-time.Now().UTC().UnixMilli() < 2000 {
-				// exceed deadline, or approaching by 2s
-				// can mark as TIMED_OUT if pre-dispatch
-				// mark as AMBIGUOUS just to double sure: e.g. dispatch failed midway but post Dial, dispatched but failed to update DB.
-				// note: not logging as error, coz we expect this, only log if we fail to transition its status to AMBIGUOUS
 				log.Printf("exceed/too close to deadline for dispatch uuid=%v to mili unix, marking as AMBIGUOUS\n", dispatch.UUID)
-				updateErr := s.dispatchRepository.Update(ctx, repositories.DispatchUpdateInput{
-					Filters: repositories.DispatchUpdateFilters{
-						UUID: &dispatch.UUID,
-					},
-					Fields: repositories.DispatchUpdateFields{
-						Status: models.DispatchStatusAmbiguous,
-					},
-				})
-				if updateErr != nil {
-					err = errors.Join(err, fmt.Errorf("failed to update dispatch status to AMBIGUOUS: %w", updateErr))
+				if updateErr := s.markDispatchStatus(ctx, dispatch.UUID, models.DispatchStatusAmbiguous); updateErr != nil {
+					err = errors.Join(err, updateErr)
 				}
 				continue
 			}
 
-			// think of this more
 			topics, resolveErr := resolveTopics(dispatch.Target)
 			if resolveErr != nil {
 				err = errors.Join(err, fmt.Errorf("failed to resolve topics for dispatch uuid=%v: %w", dispatch.UUID, resolveErr))
 				continue
 			}
 
-			// Publish -> if err -> if dial err -> fine, if ambiguous -> pray
-			// this unfortunately groups successful dispatches with completed ones
-			// to simplify things, mark dispatch as AMBIGUOUS, can think of a more granular approach later
-			publishErr := s.publishFanOut(ctx, topics, envelopeBlob)
-			if publishErr != nil {
-				subErr := fmt.Errorf("failed to publish dispatch envelope for dispatch uuid=%v: %w", dispatch.UUID, publishErr)
-				updateErr := s.dispatchRepository.Update(ctx, repositories.DispatchUpdateInput{
-					Filters: repositories.DispatchUpdateFilters{
-						UUID: &dispatch.UUID,
-					},
-					Fields: repositories.DispatchUpdateFields{
-						Status: models.DispatchStatusAmbiguous,
-					},
-				})
-				if updateErr != nil {
-					subErr = errors.Join(subErr, fmt.Errorf("failed to update dispatch status to AMBIGUOUS: %w", updateErr))
-				}
-				err = errors.Join(err, subErr)
+			// claim before commit so a second sweeper cannot publish the same STAGED row
+			if updateErr := s.markDispatchStatus(ctx, dispatch.UUID, models.DispatchStatusAmbiguous); updateErr != nil {
+				err = errors.Join(err, updateErr)
 				continue
 			}
 
-			// mark as DISPATCHED -> if err -> something BIG happened -> log error immediately
-			updateErr := s.dispatchRepository.Update(ctx, repositories.DispatchUpdateInput{
-				Filters: repositories.DispatchUpdateFilters{
-					UUID: &dispatch.UUID,
-				},
-				Fields: repositories.DispatchUpdateFields{
-					Status: models.DispatchStatusDispatched,
-				},
+			ready = append(ready, stagedPublish{
+				uuid:     dispatch.UUID,
+				topics:   topics,
+				envelope: envelopeBlob,
 			})
-			if updateErr != nil {
-				err = errors.Join(err, fmt.Errorf("failed to update dispatch status to DISPATCHED: %w", updateErr))
-				continue
-			}
 		}
 
 		if err != nil {
-			// improvement can be inspecting the error in error tree and locate for hint to rollback as a whole
-			// tolerate at this point, just commit whatever we have
+			// partial claim is acceptable; do not roll back rows already marked
 			surfacingError = err
 		}
-
 		return nil
 	})
 
-	return errors.Join(surfacingError, txErr)
+	if txErr != nil {
+		// claim did not commit, so nothing in ready is safe to publish
+		return nil, errors.Join(surfacingError, txErr)
+	}
+	return ready, surfacingError
+}
+
+func (s *Dispatch) markDispatched(ctx context.Context, ids []uuid.UUID) error {
+	if len(ids) == 0 {
+		return nil
+	}
+
+	return s.txManager.Wrap(ctx, func(ctx context.Context) error {
+		var err error
+		for _, id := range ids {
+			if updateErr := s.markDispatchStatus(ctx, id, models.DispatchStatusDispatched); updateErr != nil {
+				err = errors.Join(err, updateErr)
+			}
+		}
+		// commit the ones that updated; surface the rest
+		return err
+	})
+}
+
+func (s *Dispatch) markDispatchStatus(ctx context.Context, id uuid.UUID, status models.DispatchStatus) error {
+	updateErr := s.dispatchRepository.Update(ctx, repositories.DispatchUpdateInput{
+		Filters: repositories.DispatchUpdateFilters{
+			UUID: &id,
+		},
+		Fields: repositories.DispatchUpdateFields{
+			Status: status,
+		},
+	})
+	if updateErr != nil {
+		return fmt.Errorf("failed to update dispatch uuid=%v status to %s: %w", id, status, updateErr)
+	}
+	return nil
 }
 
 // move this somewhere later
