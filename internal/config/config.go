@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 )
 
 type Config struct {
@@ -16,6 +17,28 @@ type Config struct {
 var cfg *Config
 
 func New() *Config {
+	content, err := os.ReadFile(".env")
+	if err != nil {
+		log.Println("fallback to ENV read")
+	} else {
+		for line := range strings.Lines(string(content)) {
+			line = strings.TrimFunc(line, func(r rune) bool {
+				if r == '\n' || r == '\r' || r == ' ' {
+					return true
+				}
+				return false
+			})
+			sepIdx := strings.Index(line, "=")
+			if sepIdx <= 0 {
+				log.Fatalln("malformed k-v, crashing")
+			}
+			k, v := line[:sepIdx], line[sepIdx+1:]
+			if err := os.Setenv(k, v); err != nil {
+				log.Fatalln("failed to set ENV, crashing")
+			}
+		}
+	}
+
 	cfg := Config{
 		Logger:   NewLoggerConfig(),
 		Database: NewDatabaseConfig(),
