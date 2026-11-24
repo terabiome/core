@@ -15,22 +15,22 @@ import (
 
 type Singletons struct {
 	TxManager *postgresql.TxManager
-	MessagingWrapper
-	RepositoryWrapper
-	ServiceWrapper
+	messagingSingletons
+	repositorySingletons
+	serviceSingletons
 }
 
-type RepositoryWrapper struct {
+type repositorySingletons struct {
 	UnitOfWorkRepository *postgresql.UnitOfWorkPostgresRepository
 	DispatchRepository   *postgresql.DispatchPostgresRepository
 }
 
-type ServiceWrapper struct {
+type serviceSingletons struct {
 	UnitOfWorkService *services.UnitOfWork
 	DispatchService   *services.Dispatch
 }
 
-type MessagingWrapper struct {
+type messagingSingletons struct {
 	NATSJetstream *nats.NATSJetstream
 }
 
@@ -51,14 +51,14 @@ func Init() error {
 	// hardcode postgresql for now
 	pool := database.GetPool()
 	txManager := postgresql.NewTxManager(pool)
-	repositoryWrapper := RepositoryWrapper{
+	repositoryWrapper := repositorySingletons{
 		UnitOfWorkRepository: postgresql.NewUnitOfWorkPostgresRepository(pool),
 		DispatchRepository:   postgresql.NewDispatchPostgresRepository(pool),
 	}
 
 	sings = &Singletons{
-		TxManager:         txManager,
-		RepositoryWrapper: repositoryWrapper,
+		TxManager:            txManager,
+		repositorySingletons: repositoryWrapper,
 		UnitOfWorkService: services.NewUnitOfWork(
 			txManager,
 			repositoryWrapper.UnitOfWorkRepository,
@@ -81,7 +81,7 @@ func InitDispatch() error {
 		return fmt.Errorf("failed to setup NATS Jetstream wrapper: %w", err)
 	}
 
-	sings.MessagingWrapper = MessagingWrapper{NATSJetstream: js}
+	sings.messagingSingletons = messagingSingletons{NATSJetstream: js}
 	sings.DispatchService = services.NewDispatch(
 		sings.TxManager,
 		sings.UnitOfWorkRepository,
