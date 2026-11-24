@@ -2,10 +2,10 @@ package services
 
 import (
 	"context"
+	"encoding/json"
 
 	yamlcontracts "github.com/terabiome/core/internal/contracts/yaml"
 	"github.com/terabiome/core/internal/models"
-	"go.yaml.in/yaml/v4"
 )
 
 type UnitOfWork struct {
@@ -24,7 +24,8 @@ func NewUnitOfWork(
 }
 
 func (s *UnitOfWork) Submit(ctx context.Context, uowContract yamlcontracts.UnitOfWork) error {
-	uowBytes, err := yaml.Marshal(uowContract)
+	// YAML is superset, and for our case, can use same structs interchangably
+	uowBytes, err := json.Marshal(uowContract)
 	if err != nil {
 		return s.Errorf("failed to serialize UOW YAML input: %w", err)
 	}
