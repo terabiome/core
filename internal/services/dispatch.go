@@ -8,11 +8,11 @@ import (
 	"time"
 	"uuid"
 
-	manifestcontracts "github.com/terabiome/core/internal/contracts/manifest"
-	natscontract "github.com/terabiome/core/internal/contracts/nats"
 	"github.com/terabiome/core/internal/messaging"
 	"github.com/terabiome/core/internal/models"
 	"github.com/terabiome/core/internal/repositories"
+	dispatchcontracts "github.com/terabiome/core/pkg/contracts/dispatch"
+	manifestcontracts "github.com/terabiome/core/pkg/contracts/manifest"
 	"github.com/terabiome/core/pkg/helpers"
 	"github.com/terabiome/core/pkg/logging"
 	"golang.org/x/sync/errgroup"
@@ -361,7 +361,7 @@ func (s *Dispatch) claimStagedForPublish(ctx context.Context, limit int) ([]stag
 				continue
 			}
 
-			envelopeBlob, marshalErr := json.Marshal(natscontract.DispatchEnvelope{
+			envelopeBlob, marshalErr := json.Marshal(dispatchcontracts.DispatchEnvelope{
 				Metadata: helpers.Map().ImmutableMerge(dispatchMetadata, map[string]any{
 					"dispatch_uuid": dispatch.UUID,
 					"uow_uuid":      dispatch.UOWUUID,

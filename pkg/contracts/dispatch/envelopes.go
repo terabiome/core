@@ -1,4 +1,4 @@
-package natscontract
+package dispatch
 
 import "encoding/json"
 

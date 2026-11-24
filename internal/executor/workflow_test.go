@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	manifestcontracts "github.com/terabiome/core/internal/contracts/manifest"
+	manifestcontracts "github.com/terabiome/core/pkg/contracts/manifest"
 )
 
 const failingStep = "does.not.exist"

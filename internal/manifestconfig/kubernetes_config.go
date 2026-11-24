@@ -1,4 +1,4 @@
-package manifestcontracts
+package manifestconfig
 
 import "go.yaml.in/yaml/v4"
 

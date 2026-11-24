@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"os"
 
-	manifestcontracts "github.com/terabiome/core/internal/contracts/manifest"
 	"github.com/terabiome/core/internal/runner"
+	manifestcontracts "github.com/terabiome/core/pkg/contracts/manifest"
 	"github.com/terabiome/core/pkg/logging"
 	"go.yaml.in/yaml/v4"
 )

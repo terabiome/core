@@ -6,7 +6,6 @@ import (
 	"net/http"
 
 	"github.com/go-playground/validator/v10"
-	"github.com/terabiome/core/internal/contracts"
 	"go.yaml.in/yaml/v4"
 )
 
@@ -43,7 +42,7 @@ func ParseBodyAndHandleError(writer http.ResponseWriter, request *http.Request, 
 			err = fmt.Errorf("unsupported HTTP header Content-Type: %s", contentType)
 		}
 		// read validator tag
-		if v, ok := target.(contracts.Validatable); err == nil && ok {
+		if v, ok := target.(Validatable); err == nil && ok {
 			err = v.Validate(globalValidator)
 		}
 		if err != nil {

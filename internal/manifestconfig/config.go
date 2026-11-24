@@ -1,4 +1,4 @@
-package manifestcontracts
+package manifestconfig
 
 type Config struct {
 	DebugPrintOnly bool             `json:"debug_print_only,omitempty" yaml:"debug_print_only,omitempty"`

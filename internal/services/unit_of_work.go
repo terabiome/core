@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	manifestcontracts "github.com/terabiome/core/internal/contracts/manifest"
 	"github.com/terabiome/core/internal/models"
+	manifestcontracts "github.com/terabiome/core/pkg/contracts/manifest"
 )
 
 type UnitOfWork struct {

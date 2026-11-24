@@ -1,4 +1,4 @@
-package manifestcontracts
+package manifest
 
 import (
 	"testing"

@@ -3,7 +3,7 @@ package runner
 import (
 	"context"
 
-	manifestcontracts "github.com/terabiome/core/internal/contracts/manifest"
+	manifestcontracts "github.com/terabiome/core/pkg/contracts/manifest"
 )
 
 type WorkflowService interface {

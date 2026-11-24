@@ -5,9 +5,9 @@ import (
 	"runtime"
 	"time"
 
-	manifestcontracts "github.com/terabiome/core/internal/contracts/manifest"
 	"github.com/terabiome/core/internal/executor"
 	"github.com/terabiome/core/internal/writers"
+	manifestcontracts "github.com/terabiome/core/pkg/contracts/manifest"
 
 	"github.com/terabiome/core/internal/models"
 	"github.com/terabiome/core/internal/operations"

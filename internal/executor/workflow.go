@@ -8,8 +8,8 @@ import (
 	"strings"
 	"sync"
 
-	manifestcontracts "github.com/terabiome/core/internal/contracts/manifest"
 	"github.com/terabiome/core/internal/operations"
+	manifestcontracts "github.com/terabiome/core/pkg/contracts/manifest"
 )
 
 type WorkflowExecutor struct {
