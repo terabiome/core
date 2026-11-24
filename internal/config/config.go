@@ -28,6 +28,9 @@ func New() *Config {
 				}
 				return false
 			})
+			if len(line) < 1 || line[0] == '#' {
+				continue
+			}
 			sepIdx := strings.Index(line, "=")
 			if sepIdx <= 0 {
 				log.Fatalln("malformed k-v, crashing")
