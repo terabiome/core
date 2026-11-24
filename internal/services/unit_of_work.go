@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	yamlcontracts "github.com/terabiome/core/internal/contracts/yaml"
 	"github.com/terabiome/core/internal/models"
@@ -27,7 +28,7 @@ func (s *UnitOfWork) Submit(ctx context.Context, uowContract yamlcontracts.UnitO
 	// YAML is superset, and for our case, can use same structs interchangably
 	uowBytes, err := json.Marshal(uowContract)
 	if err != nil {
-		return s.Errorf("failed to serialize UOW YAML input: %w", err)
+		return fmt.Errorf("failed to serialize UOW YAML input: %w", err)
 	}
 
 	uow := models.UnitOfWork{
@@ -36,7 +37,7 @@ func (s *UnitOfWork) Submit(ctx context.Context, uowContract yamlcontracts.UnitO
 	}
 
 	if err = s.uowRepository.Create(ctx, uow); err != nil {
-		return s.Errorf("failed to create unit-of-work: %w", err)
+		return fmt.Errorf("failed to create unit-of-work: %w", err)
 	}
 
 	return nil

@@ -113,12 +113,6 @@ func NewBasePostgresRepository(pool *pgxpool.Pool) *basePostgresRepository {
 	return &basePostgresRepository{pool: pool}
 }
 
-// shortcut for [fmt.Errorf], with prefix or something
-func (r basePostgresRepository) Errorf(format string, a ...any) error {
-	format = fmt.Sprintf("[repository] %s", format)
-	return fmt.Errorf(format, a)
-}
-
 func (r *basePostgresRepository) wrappedExec(ctx context.Context, tx pgx.Tx, sql string, arguments ...any) (pgconn.CommandTag, error) {
 	if tx == nil {
 		return r.pool.Exec(ctx, sql, arguments...)

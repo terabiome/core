@@ -35,7 +35,7 @@ func (r *UnitOfWorkPostgresRepository) Create(ctx context.Context, uow models.Un
 	}
 
 	if _, err := r.wrappedExec(ctx, tx, q, uow.Name, uow.Config); err != nil {
-		return r.Errorf("failed to create unit-of-work: %w", err)
+		return fmt.Errorf("failed to create unit-of-work: %w", err)
 	}
 
 	return nil
@@ -43,7 +43,7 @@ func (r *UnitOfWorkPostgresRepository) Create(ctx context.Context, uow models.Un
 
 func (r *UnitOfWorkPostgresRepository) UpdateByUUID(ctx context.Context, uow models.UnitOfWork) error {
 	q, args, err := querybuilder.
-		Update(querybuilder.TableExpr("unit_of_works")).
+		Update(querybuilder.TableExpr("units_of_work")).
 		Set("name", querybuilder.Val{V: uow.Name}).
 		Set("config", querybuilder.Val{V: uow.Config}).
 		Set("staged_at", querybuilder.Val{V: uow.StagedAt}).
@@ -56,7 +56,7 @@ func (r *UnitOfWorkPostgresRepository) UpdateByUUID(ctx context.Context, uow mod
 	}
 
 	if _, err := r.wrappedExec(ctx, tx, q, args); err != nil {
-		return r.Errorf("failed to update unit-of-work: %w", err)
+		return fmt.Errorf("failed to update unit-of-work: %w", err)
 	}
 
 	return nil
