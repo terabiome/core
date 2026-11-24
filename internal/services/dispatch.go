@@ -196,6 +196,55 @@ func (s *Dispatch) BookDispatches(ctx context.Context, limit int) error {
 	return txErr
 }
 
+// RunSweep is one loop: stage, book, then publish. It does not start the next pass until the current one returns.
+// ctx stops the loop between passes. An in-flight pass keeps its own deadline so a signal does not cut a publish in half.
+func (s *Dispatch) RunSweep(ctx context.Context, limit int, interval time.Duration, passTimeout time.Duration) {
+	timer := time.NewTimer(0)
+	if !timer.Stop() {
+		<-timer.C
+	}
+	defer timer.Stop()
+
+	for {
+		if ctx.Err() != nil {
+			return
+		}
+
+		passCtx, cancel := context.WithTimeout(context.Background(), passTimeout)
+		s.sweepOnce(passCtx, limit)
+		cancel()
+
+		if ctx.Err() != nil {
+			return
+		}
+
+		timer.Reset(interval)
+		select {
+		case <-ctx.Done():
+			return
+		case <-timer.C:
+		}
+	}
+}
+
+func (s *Dispatch) sweepOnce(ctx context.Context, limit int) {
+	if err := s.Stage(ctx, limit); err != nil {
+		log.Printf("dispatch stage failed: %v\n", err)
+	}
+	if ctx.Err() != nil {
+		return
+	}
+	if err := s.BookDispatches(ctx, limit); err != nil {
+		log.Printf("dispatch book failed: %v\n", err)
+	}
+	if ctx.Err() != nil {
+		return
+	}
+	if err := s.ProcessBookedDispatches(ctx, limit); err != nil {
+		log.Printf("dispatch process failed: %v\n", err)
+	}
+}
+
 type stagedPublish struct {
 	uuid     uuid.UUID
 	topics   []string

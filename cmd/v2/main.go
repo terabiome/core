@@ -14,6 +14,7 @@ import (
 
 	"github.com/go-playground/validator/v10"
 	apihttp "github.com/terabiome/core/internal/api"
+	"github.com/terabiome/core/internal/config"
 	yamlcontracts "github.com/terabiome/core/internal/contracts/yaml"
 	"github.com/terabiome/core/internal/database"
 	httphandlers "github.com/terabiome/core/internal/handlers/http"
@@ -120,11 +121,33 @@ func processShellSubcommand(ctx context.Context, shellInput shellCLIInput) error
 	return shellRunner.Run(ctx, uow)
 }
 
+const (
+	dispatchSweepLimit = 32
+	dispatchSweepEvery = 5 * time.Second
+)
+
 func processAPISubcommand(ctx context.Context, apiInput apiCLIInput) error {
 	if err := singletons.Init(); err != nil {
 		return fmt.Errorf("failed to initialize singletons: %w", err)
 	}
 	defer database.Close()
+
+	if err := singletons.InitDispatch(); err != nil {
+		return fmt.Errorf("failed to initialize dispatch: %w", err)
+	}
+
+	sweepCtx, stopSweep := context.WithCancel(ctx)
+	defer stopSweep()
+	sweepDone := make(chan struct{})
+	go func() {
+		defer close(sweepDone)
+		singletons.Get().DispatchService.RunSweep(
+			sweepCtx,
+			dispatchSweepLimit,
+			dispatchSweepEvery,
+			config.Get().Dispatch.SweepPassTimeout,
+		)
+	}()
 
 	server := &http.Server{
 		Addr:              apiInput.Addr,
@@ -142,14 +165,27 @@ func processAPISubcommand(ctx context.Context, apiInput apiCLIInput) error {
 		close(errCh)
 	}()
 
+	var serveErr error
 	select {
 	case <-ctx.Done():
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		return server.Shutdown(shutdownCtx)
-	case err := <-errCh:
-		return err
+	case serveErr = <-errCh:
 	}
+
+	// Stop after the current pass. Do not drain HTTP first, and do not block ListenAndServe on this loop.
+	stopSweep()
+	select {
+	case <-sweepDone:
+	case <-time.After(30 * time.Second):
+		logging.GetGlobalSlogger().Error("dispatch sweep did not stop before timeout")
+	}
+
+	if serveErr != nil {
+		return serveErr
+	}
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	return server.Shutdown(shutdownCtx)
 }
 
 func main() {

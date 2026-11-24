@@ -70,7 +70,6 @@ func Init() error {
 }
 
 // InitDispatch wires NATS and the dispatch batch service. Call after Init.
-// Do not call this from the API server until a worker loop in that process actually sweeps dispatches.
 func InitDispatch() error {
 	if sings == nil || sings.TxManager == nil || sings.UnitOfWorkRepository == nil || sings.DispatchRepository == nil {
 		return errors.New("singletons.Init must run before InitDispatch")

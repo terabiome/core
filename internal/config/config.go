@@ -10,6 +10,7 @@ type Config struct {
 	Logger   LoggerConfig
 	Database DatabaseConfig
 	NATS     NATSConfig
+	Dispatch DispatchConfig
 }
 
 var cfg *Config
@@ -19,6 +20,7 @@ func New() *Config {
 		Logger:   NewLoggerConfig(),
 		Database: NewDatabaseConfig(),
 		NATS:     NewNATSConfig(),
+		Dispatch: NewDispatchConfig(),
 	}
 	return &cfg
 }
