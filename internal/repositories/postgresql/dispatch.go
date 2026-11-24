@@ -146,7 +146,7 @@ func (r *DispatchPostgresRepository) Update(ctx context.Context, input repositor
 		return fmt.Errorf("failed to load transaction from ctx: %w", err)
 	}
 
-	if _, err := r.wrappedExec(ctx, tx, q, args); err != nil {
+	if _, err := r.wrappedExec(ctx, tx, q, args...); err != nil {
 		return fmt.Errorf("failed to update dispatch: %w", err)
 	}
 

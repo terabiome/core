@@ -49,13 +49,16 @@ func (r *UnitOfWorkPostgresRepository) UpdateByUUID(ctx context.Context, uow mod
 		Set("staged_at", querybuilder.Val{V: uow.StagedAt}).
 		Where(querybuilder.EqualCheckExpr(querybuilder.ColumnExpr("uuid"), querybuilder.Val{V: uow.UUID})).
 		Build()
+	if err != nil {
+		return fmt.Errorf("failed to build query: %w", err)
+	}
 
 	tx, err := loadTxFromCtx(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to load transaction from ctx: %w", err)
 	}
 
-	if _, err := r.wrappedExec(ctx, tx, q, args); err != nil {
+	if _, err := r.wrappedExec(ctx, tx, q, args...); err != nil {
 		return fmt.Errorf("failed to update unit-of-work: %w", err)
 	}
 
