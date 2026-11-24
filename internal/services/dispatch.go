@@ -8,14 +8,13 @@ import (
 	"time"
 	"uuid"
 
+	manifestcontracts "github.com/terabiome/core/internal/contracts/manifest"
 	natscontract "github.com/terabiome/core/internal/contracts/nats"
-	yamlcontracts "github.com/terabiome/core/internal/contracts/yaml"
 	"github.com/terabiome/core/internal/messaging"
 	"github.com/terabiome/core/internal/models"
 	"github.com/terabiome/core/internal/repositories"
 	"github.com/terabiome/core/pkg/helpers"
 	"github.com/terabiome/core/pkg/logging"
-	"go.yaml.in/yaml/v4"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -67,20 +66,20 @@ func (s *Dispatch) Stage(ctx context.Context, limit int) (sweepCounts, error) {
 		// something else
 		for _, uow := range uows {
 			// TODO: fetch something and create "dispatch" record
-			var uowYAML yamlcontracts.UnitOfWork
-			if subErr := yaml.Unmarshal(uow.Config, &uowYAML); subErr != nil {
-				err = errors.Join(err, fmt.Errorf("failed to load YAML config of unit-of-work uuid=%s: %w", uow.UUID, subErr))
+			var uowContract manifestcontracts.UnitOfWork
+			if subErr := json.Unmarshal(uow.Config, &uowContract); subErr != nil {
+				err = errors.Join(err, fmt.Errorf("failed to load config of unit-of-work uuid=%s: %w", uow.UUID, subErr))
 				continue
 			}
 
 			// double-check just to make sure
-			if uowYAML.CheckIfContainCycle() {
-				err = errors.Join(err, fmt.Errorf("YAML config of unit-of-work uuid=%s contains cycle", uow.UUID))
+			if uowContract.CheckIfContainCycle() {
+				err = errors.Join(err, fmt.Errorf("config of unit-of-work uuid=%s contains cycle", uow.UUID))
 				continue
 			}
 
 			// DB column is JSONB, unfortunately
-			sequences, subErr := json.Marshal(uowYAML.Sequences)
+			sequences, subErr := json.Marshal(uowContract.Sequences)
 			if subErr != nil {
 				err = errors.Join(err, fmt.Errorf("failed to serialize sequence to [json.RawMessage] for unit-of-work uuid=%s: %w", uow.UUID, subErr))
 				continue
@@ -93,8 +92,8 @@ func (s *Dispatch) Stage(ctx context.Context, limit int) (sweepCounts, error) {
 			// 	+ to simplify, when resolving NATS topics to emit the event to, it tracks the events. if emitted into 3 topics, and all successful, it counts as FULLY_DISPATCHED
 			// 	+ rest of transitions of the downstream consumers have nothing to do with the status of the dispatch
 
-			dispatches := make([]models.Dispatch, 0, len(uowYAML.Targets))
-			for _, targetYAML := range uowYAML.Targets {
+			dispatches := make([]models.Dispatch, 0, len(uowContract.Targets))
+			for _, targetYAML := range uowContract.Targets {
 				target, subErr := json.Marshal(targetYAML)
 				if subErr != nil {
 					err = errors.Join(err, fmt.Errorf("failed to serialize target to [json.RawMessage] for unit-of-work uuid=%s: %w", uow.UUID, subErr))
@@ -487,7 +486,7 @@ func (s *Dispatch) publishFanOut(ctx context.Context, topics []string, data []by
 
 // need to move this somewhere, but put it here for now
 func resolveTopics(target json.RawMessage) ([]string, error) {
-	targetYAML, err := helpers.JSON().Unmarshal[yamlcontracts.UnitOfWorkTarget](target)
+	targetYAML, err := helpers.JSON().Unmarshal[manifestcontracts.UnitOfWorkTarget](target)
 	if err != nil {
 		return nil, fmt.Errorf("failed to deserialize UOW target to YAML Go struct: %w", err)
 	}

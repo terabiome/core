@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	yamlcontracts "github.com/terabiome/core/internal/contracts/yaml"
+	manifestcontracts "github.com/terabiome/core/internal/contracts/manifest"
 	"github.com/terabiome/core/internal/models"
 )
 
@@ -24,7 +24,7 @@ func NewUnitOfWork(
 	}
 }
 
-func (s *UnitOfWork) Submit(ctx context.Context, uowContract yamlcontracts.UnitOfWork) error {
+func (s *UnitOfWork) Submit(ctx context.Context, uowContract manifestcontracts.UnitOfWork) error {
 	// YAML is superset, and for our case, can use same structs interchangably
 	uowBytes, err := json.Marshal(uowContract)
 	if err != nil {

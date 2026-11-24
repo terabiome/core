@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
-	yamlcontracts "github.com/terabiome/core/internal/contracts/yaml"
+	manifestcontracts "github.com/terabiome/core/internal/contracts/manifest"
 )
 
 type UnitOfWork struct {
@@ -18,7 +18,7 @@ func NewUnitOfWork(uowService UnitOfWorkService) *UnitOfWork {
 }
 
 func (h *UnitOfWork) Submit(writer http.ResponseWriter, request *http.Request) {
-	var uowContract yamlcontracts.UnitOfWork
+	var uowContract manifestcontracts.UnitOfWork
 	cb, err := ParseBodyAndHandleError(writer, request, &uowContract, true)
 	if err != nil {
 		cb()

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	yamlcontracts "github.com/terabiome/core/internal/contracts/yaml"
+	manifestcontracts "github.com/terabiome/core/internal/contracts/manifest"
 	"github.com/terabiome/core/internal/operations"
 	"github.com/terabiome/core/internal/registry"
 )
@@ -19,7 +19,7 @@ func NewSequenceExecutor(env *operations.OperationEnvironment) *SequenceExecutor
 }
 
 // Execute runs all steps in the sequence sequentially.
-func (e *SequenceExecutor) Execute(ctx context.Context, sequence yamlcontracts.UnitOfWorkSequence) error {
+func (e *SequenceExecutor) Execute(ctx context.Context, sequence manifestcontracts.UnitOfWorkSequence) error {
 	for i, step := range sequence.Steps {
 		select {
 		case <-ctx.Done():
@@ -34,7 +34,7 @@ func (e *SequenceExecutor) Execute(ctx context.Context, sequence yamlcontracts.U
 	return nil
 }
 
-func (e *SequenceExecutor) runStep(ctx context.Context, step yamlcontracts.UnitOfWorkStep) error {
+func (e *SequenceExecutor) runStep(ctx context.Context, step manifestcontracts.UnitOfWorkStep) error {
 	// 1. Resolve Operation
 	op, err := registry.Get(step.Name)
 	if err != nil {

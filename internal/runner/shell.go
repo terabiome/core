@@ -5,7 +5,7 @@ import (
 	"runtime"
 	"time"
 
-	yamlcontracts "github.com/terabiome/core/internal/contracts/yaml"
+	manifestcontracts "github.com/terabiome/core/internal/contracts/manifest"
 	"github.com/terabiome/core/internal/executor"
 	"github.com/terabiome/core/internal/writers"
 
@@ -29,7 +29,7 @@ func NewShellRunner(
 	}
 }
 
-func (r *ShellRunner) Run(ctx context.Context, uow yamlcontracts.UnitOfWork) error {
+func (r *ShellRunner) Run(ctx context.Context, uow manifestcontracts.UnitOfWork) error {
 	// 1. Setup Local Environment
 	journaler, _ := writers.NewJournaler(writers.JournalerParameters{
 		MaxRecords:    50,

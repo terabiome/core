@@ -1,4 +1,4 @@
-package yamlcontracts
+package manifestcontracts
 
 import (
 	"fmt"

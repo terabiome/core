@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"sync"
 
-	yamlcontracts "github.com/terabiome/core/internal/contracts/yaml"
+	manifestcontracts "github.com/terabiome/core/internal/contracts/manifest"
 	"github.com/terabiome/core/internal/operations"
 )
 
@@ -27,14 +27,14 @@ func NewWorkflowExecutor(env *operations.OperationEnvironment, maxConcurrency in
 }
 
 // ExecuteAsDAG dynamically resolves dependencies and executes sequences concurrently.
-func (w *WorkflowExecutor) ExecuteAsDAG(ctx context.Context, seqs []yamlcontracts.UnitOfWorkSequence) error {
+func (w *WorkflowExecutor) ExecuteAsDAG(ctx context.Context, seqs []manifestcontracts.UnitOfWorkSequence) error {
 	if len(seqs) == 0 {
 		return nil
 	}
 
 	var (
 		mu                     sync.Mutex
-		stagedSequences        = make(map[string]yamlcontracts.UnitOfWorkSequence, len(seqs))
+		stagedSequences        = make(map[string]manifestcontracts.UnitOfWorkSequence, len(seqs))
 		completedSequenceNames = make(map[string]bool, len(seqs))
 		activeGoroutines       = 0
 		errChan                = make(chan error, len(seqs))
@@ -56,7 +56,7 @@ func (w *WorkflowExecutor) ExecuteAsDAG(ctx context.Context, seqs []yamlcontract
 		}
 
 		// Find sequences that are ready to run
-		var readyToRun []yamlcontracts.UnitOfWorkSequence
+		var readyToRun []manifestcontracts.UnitOfWorkSequence
 		for name, seq := range stagedSequences {
 			if completedSequenceNames[name] {
 				continue
@@ -94,7 +94,7 @@ func (w *WorkflowExecutor) ExecuteAsDAG(ctx context.Context, seqs []yamlcontract
 		// Launch ready sequences
 		for _, seq := range readyToRun {
 			wg.Add(1)
-			go func(s yamlcontracts.UnitOfWorkSequence) {
+			go func(s manifestcontracts.UnitOfWorkSequence) {
 				defer wg.Done()
 
 				// Execute the sequence
@@ -129,7 +129,7 @@ func (w *WorkflowExecutor) ExecuteAsDAG(ctx context.Context, seqs []yamlcontract
 
 // Execute takes pre-sorted batches and runs them.
 // Batches are sequential; sequences within a batch are concurrent.
-func (w *WorkflowExecutor) Execute(ctx context.Context, batches []yamlcontracts.UnitOfWorkSequenceBatch) error {
+func (w *WorkflowExecutor) Execute(ctx context.Context, batches []manifestcontracts.UnitOfWorkSequenceBatch) error {
 	for _, batch := range batches {
 		select {
 		case <-ctx.Done():
@@ -144,13 +144,13 @@ func (w *WorkflowExecutor) Execute(ctx context.Context, batches []yamlcontracts.
 	return nil
 }
 
-func (w *WorkflowExecutor) runBatch(ctx context.Context, batch yamlcontracts.UnitOfWorkSequenceBatch) error {
+func (w *WorkflowExecutor) runBatch(ctx context.Context, batch manifestcontracts.UnitOfWorkSequenceBatch) error {
 	var wg sync.WaitGroup
 	errChan := make(chan error, len(batch.Sequences))
 
 	for _, seq := range batch.Sequences {
 		wg.Add(1)
-		go func(s yamlcontracts.UnitOfWorkSequence) {
+		go func(s manifestcontracts.UnitOfWorkSequence) {
 			defer wg.Done()
 
 			// Check context before starting

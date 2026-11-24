@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	yamlcontracts "github.com/terabiome/core/internal/contracts/yaml"
+	manifestcontracts "github.com/terabiome/core/internal/contracts/manifest"
 	"github.com/terabiome/core/internal/runner"
 	"github.com/terabiome/core/pkg/logging"
 	"go.yaml.in/yaml/v4"
@@ -30,7 +30,7 @@ func processShellSubcommand(ctx context.Context, shellInput shellCLIInput) error
 		return fmt.Errorf("%s: %w", errMsgFailedToReadYAMLConfig, err)
 	}
 
-	var uow yamlcontracts.UnitOfWork
+	var uow manifestcontracts.UnitOfWork
 	if err = yaml.Unmarshal(content, &uow); err != nil {
 		return fmt.Errorf("%s: %w", errMsgFailedToDecodeYAMLConfig, err)
 	}
