@@ -7,8 +7,12 @@ strategy: depth-first
 targets:
   - labels:
       role: k8s-control-plane
+    topics:
+      - dummy.dispatch
   - ids:
       - ABCDEFGHIKLMNOPQRSTUVWXYZ
+    topics:
+      - dummy.dispatch
 type: workflow  # "workflow" = one-shot execution. No reconciliation.
 sequences:
   # --- Phase 1: OS Primitives & Hardening ---
