@@ -125,6 +125,8 @@ func (u UnitOfWork) CheckIfContainCycle() bool {
 		for dependant := range directedAdjacencyGraph {
 			delete(directedAdjacencyGraph[dependant], target)
 			if len(directedAdjacencyGraph[dependant]) == 0 {
+				// drop the node before enqueueing, or the next pass sees an empty set and appends it again
+				delete(directedAdjacencyGraph, dependant)
 				dependentQueue = append(dependentQueue, dependant)
 			}
 		}
