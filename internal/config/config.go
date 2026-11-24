@@ -9,6 +9,7 @@ import (
 type Config struct {
 	Logger   LoggerConfig
 	Database DatabaseConfig
+	NATS     NATSConfig
 }
 
 var cfg *Config
@@ -17,6 +18,7 @@ func New() *Config {
 	cfg := Config{
 		Logger:   NewLoggerConfig(),
 		Database: NewDatabaseConfig(),
+		NATS:     NewNATSConfig(),
 	}
 	return &cfg
 }

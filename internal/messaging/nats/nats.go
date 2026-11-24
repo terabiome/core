@@ -6,6 +6,7 @@ import (
 
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
+	"github.com/terabiome/core/internal/config"
 	"github.com/terabiome/core/internal/messaging"
 	"github.com/terabiome/core/pkg/logging"
 )
@@ -84,7 +85,12 @@ func (c *NATSJetstream) Consume(
 
 // Constructor
 func NewNATSJetstream() (*NATSJetstream, error) {
-	conn, err := nats.Connect(nats.DefaultURL)
+	url := config.Get().NATS.URL
+	if url == "" {
+		url = nats.DefaultURL
+	}
+
+	conn, err := nats.Connect(url)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to NATS server: %w", err)
 	}
