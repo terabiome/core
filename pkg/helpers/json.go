@@ -1,6 +1,9 @@
 package helpers
 
-import "encoding/json"
+import (
+	"bytes"
+	"encoding/json"
+)
 
 type jsonHelpers struct{}
 
@@ -10,6 +13,9 @@ func JSON() jsonHelpers {
 
 func (h jsonHelpers) Unmarshal[T any](data []byte) (T, error) {
 	var v T
-	err := json.Unmarshal(data, &v)
+	// Numbers that are not decoded into an integer field stay json.Number, not float64.
+	dec := json.NewDecoder(bytes.NewReader(data))
+	dec.UseNumber()
+	err := dec.Decode(&v)
 	return v, err
 }
