@@ -184,13 +184,12 @@ func processAPISubcommand(ctx context.Context, apiInput apiCLIInput) error {
 		logging.GetGlobalSlogger().Error("dispatch sweep did not stop before timeout")
 	}
 
-	if serveErr != nil {
-		return serveErr
-	}
-
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	return server.Shutdown(shutdownCtx)
+	if err := server.Shutdown(shutdownCtx); err != nil {
+		return errors.Join(serveErr, err)
+	}
+	return serveErr
 }
 
 func main() {
