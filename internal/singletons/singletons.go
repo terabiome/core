@@ -37,7 +37,11 @@ type messagingSingletons struct {
 var sings *Singletons
 
 func InitLogger() {
-	logging.InitGlobalSlogger(config.Get().Logger)
+	cfg := config.Get().Logger
+	logging.InitGlobalSlogger(logging.Config{
+		Level:  cfg.Level,
+		Format: cfg.Format,
+	})
 }
 
 func Init() error {

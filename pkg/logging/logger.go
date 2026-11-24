@@ -4,18 +4,15 @@ import (
 	"log/slog"
 	"os"
 	"strings"
-
-	"github.com/terabiome/core/internal/config"
 )
 
 type Slogger struct {
-	cfg config.LoggerConfig
 	*slog.Logger
 }
 
 var globalSlogger *Slogger
 
-func NewSlogger(cfg config.LoggerConfig, attributes map[string]any) *Slogger {
+func NewSlogger(cfg Config, attributes map[string]any) *Slogger {
 	var logLevel slog.Level
 
 	switch strings.ToLower(cfg.Level) {
@@ -52,12 +49,11 @@ func NewSlogger(cfg config.LoggerConfig, attributes map[string]any) *Slogger {
 	}
 
 	return &Slogger{
-		cfg:    cfg,
 		Logger: slogger,
 	}
 }
 
-func InitGlobalSlogger(cfg config.LoggerConfig) {
+func InitGlobalSlogger(cfg Config) {
 	globalSlogger = NewSlogger(cfg, map[string]any{
 		"scope": "global",
 	})
