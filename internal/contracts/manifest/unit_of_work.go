@@ -40,8 +40,8 @@ type UnitOfWorkTarget struct {
 
 // UnitOfWorkSequence is part of UnitOfWork, representing logical grouping of linear execution steps.
 type UnitOfWorkSequence struct {
-	Name      string           `json:"name" yaml:"name" validate:"required,alphanum,min=3,max=50"`
-	DependsOn []string         `json:"depends_on" yaml:"depends_on" validate:"dive,required,alphanum"` // must not contain names of another dependent sequence, else fatal
+	Name      string           `json:"name" yaml:"name" validate:"required,hostname_rfc1123,min=3,max=50"`
+	DependsOn []string         `json:"depends_on" yaml:"depends_on" validate:"dive,required,hostname_rfc1123,min=3,max=50"` // must not contain names of another dependent sequence, else fatal
 	Steps     []UnitOfWorkStep `json:"steps" yaml:"steps" validate:"required,min=1,dive"`
 }
 
@@ -51,7 +51,7 @@ func (s UnitOfWorkSequence) IsIndependent() bool {
 
 // UnitOfWorkStep is part of UnitOfWorkSequence, representing the smallest unit of execution.
 type UnitOfWorkStep struct {
-	Name       string         `json:"name" yaml:"name" validate:"required,alphanum,min=3,max=50"`
+	Name       string         `json:"name" yaml:"name" validate:"required,hostname_rfc1123,min=3,max=50"`
 	IsAsync    bool           `json:"is_async" yaml:"is_async"` // false by default, unsupported as of now
 	Parameters map[string]any `json:"parameters" yaml:"parameters"`
 }
