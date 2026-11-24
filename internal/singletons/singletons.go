@@ -90,6 +90,16 @@ func InitDispatch() error {
 	return nil
 }
 
+func CloseDispatch() error {
+	if sings == nil || sings.NATSJetstream == nil {
+		return nil
+	}
+	if err := sings.NATSJetstream.Close(); err != nil {
+		return fmt.Errorf("failed to close NATS connection: %w", err)
+	}
+	return nil
+}
+
 func Get() *Singletons {
 	return sings
 }

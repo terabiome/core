@@ -135,6 +135,11 @@ func processAPISubcommand(ctx context.Context, apiInput apiCLIInput) error {
 	if err := singletons.InitDispatch(); err != nil {
 		return fmt.Errorf("failed to initialize dispatch: %w", err)
 	}
+	defer func() {
+		if err := singletons.CloseDispatch(); err != nil {
+			logging.GetGlobalSlogger().Error("failed to close NATS", "error", err)
+		}
+	}()
 
 	sweepCtx, stopSweep := context.WithCancel(ctx)
 	defer stopSweep()

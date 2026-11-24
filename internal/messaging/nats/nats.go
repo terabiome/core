@@ -102,3 +102,11 @@ func NewNATSJetstream() (*NATSJetstream, error) {
 
 	return &NATSJetstream{conn: conn, js: js}, nil
 }
+
+// Close flushes in-flight publishes and closes the connection.
+func (c *NATSJetstream) Close() error {
+	if c == nil || c.conn == nil || c.conn.IsClosed() {
+		return nil
+	}
+	return c.conn.Drain()
+}
