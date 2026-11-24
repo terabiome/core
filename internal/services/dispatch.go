@@ -99,7 +99,8 @@ func (s *Dispatch) Stage(ctx context.Context, limit int) error {
 				continue
 			}
 
-			uow.StagedAt = time.Now().UTC()
+			stagedAt := time.Now().UTC()
+			uow.StagedAt = &stagedAt
 			if subErr := s.uowRepository.UpdateByUUID(ctx, uow); subErr != nil {
 				// inserts are already in this transaction; committing would restage the same unit
 				return fmt.Errorf("failed to update uow uuid=%s: %w", uow.UUID, subErr)

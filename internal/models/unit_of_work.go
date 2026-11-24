@@ -12,7 +12,7 @@ type UnitOfWork struct {
 	Name      string
 	Config    json.RawMessage
 	CreatedAt time.Time
-	StagedAt  time.Time // zeroable
+	StagedAt  *time.Time // nil until staged
 }
 
 type DispatchStatus string
