@@ -3,12 +3,15 @@ package systemd
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
+	"regexp"
 
 	"github.com/go-viper/mapstructure/v2"
+	"github.com/terabiome/core/pkg/helpers"
 	operationspkg "github.com/terabiome/core/pkg/operations"
 )
+
+var unitNamePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.@-]*$`)
 
 type ConfigureUnitOperation struct {
 	rawParameters map[string]any
@@ -23,14 +26,15 @@ func (op *ConfigureUnitOperation) PreCheck(env *operationspkg.OperationEnvironme
 	if op.parameters.Name == "" || op.parameters.Content == "" {
 		return fmt.Errorf("precheck failed: 'name' and 'content' are required")
 	}
+	if !unitNamePattern.MatchString(op.parameters.Name) {
+		return fmt.Errorf("precheck failed: invalid unit name %q", op.parameters.Name)
+	}
 	return nil
 }
 
 func (op *ConfigureUnitOperation) Run(ctx context.Context, env *operationspkg.OperationEnvironment) error {
 	path := filepath.Join("/etc/systemd/system", op.parameters.Name+".service")
-
-	// Atomic Write to ensure the unit file is never partially written
-	if err := os.WriteFile(path, []byte(op.parameters.Content), 0644); err != nil {
+	if err := helpers.File().WriteFileAtomic(path, []byte(op.parameters.Content), 0644); err != nil {
 		return fmt.Errorf("failed to write systemd unit %s: %w", path, err)
 	}
 
