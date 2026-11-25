@@ -14,13 +14,13 @@ import (
 
 type WorkflowExecutor struct {
 	env            *operationspkg.OperationEnvironment
-	registry       *operationspkg.Registry
+	registry       Registry
 	maxConcurrency int
 }
 
 func NewWorkflowExecutor(
 	env *operationspkg.OperationEnvironment,
-	registry *operationspkg.Registry,
+	registry Registry,
 	maxConcurrency int,
 ) *WorkflowExecutor {
 	if maxConcurrency <= 0 {

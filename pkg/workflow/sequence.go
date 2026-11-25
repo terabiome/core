@@ -10,12 +10,12 @@ import (
 
 type SequenceExecutor struct {
 	env      *operationspkg.OperationEnvironment
-	registry *operationspkg.Registry
+	registry Registry
 }
 
 func NewSequenceExecutor(
 	env *operationspkg.OperationEnvironment,
-	registry *operationspkg.Registry,
+	registry Registry,
 ) *SequenceExecutor {
 	return &SequenceExecutor{
 		env:      env,
