@@ -2,6 +2,7 @@ package journalers
 
 import (
 	"fmt"
+	"sync"
 	"time"
 )
 
@@ -36,6 +37,8 @@ type JournalerMetadata struct {
 }
 
 type Journaler struct {
+	mu            sync.RWMutex
+	closed        bool
 	doneCh        chan struct{}
 	inputCh       chan JournalEntry
 	batchFn       BatchHandler
@@ -62,6 +65,13 @@ func (t *Journaler) Write(p []byte) (n int, err error) {
 	if len(p) == 0 {
 		return 0, nil
 	}
+
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	if t.closed {
+		return len(p), nil
+	}
+
 	entry := JournalEntry{
 		Timestamp: time.Now(),
 		Source:    "stream",
@@ -69,13 +79,19 @@ func (t *Journaler) Write(p []byte) (n int, err error) {
 	}
 	select {
 	case t.inputCh <- entry:
-		return len(p), nil
 	default:
 		return len(p), nil // Drop if full
 	}
+	return len(p), nil
 }
 
 func (t *Journaler) Log(msg string, metadata JournalerMetadata) {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	if t.closed {
+		return
+	}
+
 	entry := JournalEntry{
 		Timestamp:  time.Now(),
 		Message:    msg,
@@ -95,33 +111,40 @@ func (t *Journaler) process() {
 	defer ticker.Stop()
 
 	buffer := make([]JournalEntry, 0, t.maxRecords)
+	flush := func() {
+		if len(buffer) == 0 {
+			return
+		}
+		batch := buffer
+		buffer = make([]JournalEntry, 0, t.maxRecords)
+		t.batchFn(batch)
+	}
 
 	for {
 		select {
 		case entry, ok := <-t.inputCh:
 			if !ok {
-				// sweep remaining logs
-				if len(buffer) > 0 {
-					t.batchFn(buffer)
-				}
+				flush()
 				return
 			}
 			buffer = append(buffer, entry)
 			if len(buffer) >= t.maxRecords {
-				t.batchFn(buffer)
-				buffer = buffer[:0] // reset slice length, keep capacity
+				flush()
 			}
 		case <-ticker.C:
-			if len(buffer) > 0 {
-				t.batchFn(buffer)
-				buffer = buffer[:0]
-			}
+			flush()
 		}
 	}
 }
 
 func (t *Journaler) Close() error {
-	close(t.inputCh)
+	t.mu.Lock()
+	if !t.closed {
+		t.closed = true
+		close(t.inputCh)
+	}
+	t.mu.Unlock()
+
 	<-t.doneCh
 	return nil
 }
