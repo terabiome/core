@@ -2,6 +2,7 @@ package natsjetstream
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/nats-io/nats.go"
@@ -38,56 +39,86 @@ func (c *Client) Publish(
 func (c *Client) Consume(
 	ctx context.Context,
 	source messaging.Source,
-	processor messaging.Processor[Message],
-) (*messaging.Subscription[jetstream.ConsumeContext], error) {
+	processor messaging.Processor[messaging.Message],
+) (*messaging.Subscription, error) {
 	stream, err := c.js.Stream(ctx, source.Stream)
 	if err != nil {
 		return nil, fmt.Errorf("failed to access stream %s: %w", source.Stream, err)
 	}
 
-	consumerConfig, err := buildJetstreamConsumerConfig(source.Options)
+	consumerConfig, options, err := buildConsumerConfig(source)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build consumer config: %w", err)
 	}
-	consumerConfig.FilterSubject = source.Subject
 
-	var consumer jetstream.Consumer
-
-	if override, ok := source.Options["override_consumer"].(bool); ok && override {
-		consumer, err = stream.CreateOrUpdateConsumer(ctx, *consumerConfig)
-	} else {
-		consumer, err = stream.Consumer(ctx, consumerConfig.Durable)
-		if err == jetstream.ErrConsumerNotFound {
-			consumer, err = stream.CreateConsumer(ctx, *consumerConfig)
-		}
-	}
-
+	consumer, err := ensureConsumer(ctx, stream, consumerConfig, options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize consumer for %s: %w", source.Subject, err)
 	}
 
-	// Start the consumption loop
 	consumeCtx, err := consumer.Consume(func(msg jetstream.Msg) {
-		if handleErr := processor.Handle(ctx, Message{msg}); handleErr != nil {
+		handleErr := processor.Handle(ctx, Message{Raw: msg})
+		switch {
+		case handleErr == nil:
+			if ackErr := msg.Ack(); ackErr != nil && c.logger != nil {
+				c.logger.ErrorContext(ctx, "failed to acknowledge message",
+					"subject", msg.Subject(),
+					"error", ackErr)
+			}
+		case messaging.IsTerminal(handleErr):
+			if c.logger != nil {
+				c.logger.WarnContext(ctx, "terminating unprocessable message",
+					"subject", msg.Subject(),
+					"error", handleErr)
+			}
+			if termErr := msg.Term(); termErr != nil && c.logger != nil {
+				c.logger.ErrorContext(ctx, "failed to terminate message",
+					"subject", msg.Subject(),
+					"error", termErr)
+			}
+		default:
 			if c.logger != nil {
 				c.logger.ErrorContext(ctx, "message processing failed",
 					"subject", msg.Subject(),
 					"error", handleErr)
 			}
-			msg.Nak() // Return to stream for retry
-			return
+			if nakErr := msg.Nak(); nakErr != nil && c.logger != nil {
+				c.logger.ErrorContext(ctx, "failed to negatively acknowledge message",
+					"subject", msg.Subject(),
+					"error", nakErr)
+			}
 		}
-		msg.Ack() // Confirm success
 	})
-
 	if err != nil {
 		return nil, fmt.Errorf("failed to start consumption for %s: %w", source.Subject, err)
 	}
 
-	return &messaging.Subscription[jetstream.ConsumeContext]{
-		Source: source,
-		Raw:    consumeCtx,
-	}, nil
+	return messaging.NewSubscription(
+		source,
+		consumeCtx.Stop,
+		consumeCtx.Drain,
+		consumeCtx.Closed(),
+	), nil
+}
+
+func ensureConsumer(
+	ctx context.Context,
+	stream jetstream.Stream,
+	config *jetstream.ConsumerConfig,
+	options SubscribeOptions,
+) (jetstream.Consumer, error) {
+	if options.Override {
+		return stream.CreateOrUpdateConsumer(ctx, *config)
+	}
+	if options.Ephemeral {
+		return stream.CreateConsumer(ctx, *config)
+	}
+
+	consumer, err := stream.Consumer(ctx, config.Durable)
+	if errors.Is(err, jetstream.ErrConsumerNotFound) {
+		return stream.CreateConsumer(ctx, *config)
+	}
+	return consumer, err
 }
 
 // New connects to NATS and creates a JetStream client.

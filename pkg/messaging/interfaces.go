@@ -19,13 +19,13 @@ type Publisher interface {
 	Publish(ctx context.Context, destination Destination, data []byte) error
 }
 
-type Consumer[M Message, S any] interface {
-	Consume(ctx context.Context, source Source, processor Processor[M]) (*Subscription[S], error)
+type Consumer interface {
+	Consume(ctx context.Context, source Source, processor Processor[Message]) (*Subscription, error)
 }
 
-type Transport[M Message, S any] interface {
+type Transport interface {
 	Publisher
-	Consumer[M, S]
+	Consumer
 }
 
 type Processor[M Message] interface {
