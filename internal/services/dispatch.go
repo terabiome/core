@@ -22,20 +22,20 @@ type Dispatch struct {
 	baseService
 	uowRepository      UnitOfWorkRepository
 	dispatchRepository DispatchRepository
-	producer           messaging.Producer
+	publisher          messaging.Publisher
 }
 
 func NewDispatch(
 	txManager TransactionManager,
 	uowRepo UnitOfWorkRepository,
 	dispatchRepo DispatchRepository,
-	producer messaging.Producer,
+	publisher messaging.Publisher,
 ) *Dispatch {
 	return &Dispatch{
 		baseService:        newBaseService(txManager),
 		uowRepository:      uowRepo,
 		dispatchRepository: dispatchRepo,
-		producer:           producer,
+		publisher:          publisher,
 	}
 }
 
@@ -472,9 +472,9 @@ func (s *Dispatch) publishFanOut(ctx context.Context, topics []string, data []by
 	for _, topic := range topics {
 		g.Go(func(topic string) func() error {
 			return func() error {
-				err := s.producer.Produce(ctx, messaging.Destination{Topic: topic}, data)
+				err := s.publisher.Publish(ctx, messaging.Destination{Subject: topic}, data)
 				if err != nil {
-					return fmt.Errorf("failed to produce to %s: %w", topic, err)
+					return fmt.Errorf("failed to publish to %s: %w", topic, err)
 				}
 				return nil
 			}

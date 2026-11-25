@@ -6,11 +6,12 @@ type Subscription[T any] struct {
 }
 
 type Source struct {
-	Topic      string
-	Parameters map[string]any
+	Stream  string
+	Subject string
+	Options map[string]any
 }
 
 type Destination struct {
-	Topic     string
-	Parameter map[string]any
+	Subject string
+	Options map[string]any
 }

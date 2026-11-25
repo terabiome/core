@@ -1,4 +1,4 @@
-package nats
+package natsjetstream
 
 import (
 	"context"
@@ -6,49 +6,54 @@ import (
 
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
-	"github.com/terabiome/core/internal/config"
 	"github.com/terabiome/core/pkg/logging"
 	"github.com/terabiome/core/pkg/messaging"
 )
 
-type NATSJetstream struct {
-	conn *nats.Conn
-	js   jetstream.JetStream
+type Config struct {
+	URL string
 }
 
-// Produce implements [messaging.Producer]
-func (c *NATSJetstream) Produce(
+type Client struct {
+	conn   *nats.Conn
+	js     jetstream.JetStream
+	logger logging.Logger
+}
+
+// Publish implements [messaging.Publisher]
+func (c *Client) Publish(
 	ctx context.Context,
 	destination messaging.Destination,
 	data []byte,
 ) error {
 	// ignore ACK for now
-	_, err := c.js.Publish(ctx, destination.Topic, data)
+	_, err := c.js.Publish(ctx, destination.Subject, data)
 	if err != nil {
-		return fmt.Errorf("failed to publish to stream %s: %w", destination.Topic, err)
+		return fmt.Errorf("failed to publish to %s: %w", destination.Subject, err)
 	}
 	return nil
 }
 
 // Consume implements [messaging.Consumer]
-func (c *NATSJetstream) Consume(
+func (c *Client) Consume(
 	ctx context.Context,
 	source messaging.Source,
 	processor messaging.Processor[Message],
 ) (*messaging.Subscription[jetstream.ConsumeContext], error) {
-	stream, err := c.js.Stream(ctx, source.Topic)
+	stream, err := c.js.Stream(ctx, source.Stream)
 	if err != nil {
-		return nil, fmt.Errorf("failed to access stream %s: %w", source.Topic, err)
+		return nil, fmt.Errorf("failed to access stream %s: %w", source.Stream, err)
 	}
 
-	consumerConfig, err := buildJetstreamConsumerConfig(source.Parameters)
+	consumerConfig, err := buildJetstreamConsumerConfig(source.Options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build consumer config: %w", err)
 	}
+	consumerConfig.FilterSubject = source.Subject
 
 	var consumer jetstream.Consumer
 
-	if override, ok := source.Parameters["override_consumer"].(bool); ok && override {
+	if override, ok := source.Options["override_consumer"].(bool); ok && override {
 		consumer, err = stream.CreateOrUpdateConsumer(ctx, *consumerConfig)
 	} else {
 		consumer, err = stream.Consumer(ctx, consumerConfig.Durable)
@@ -58,15 +63,17 @@ func (c *NATSJetstream) Consume(
 	}
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to initialize consumer for %s: %w", source.Topic, err)
+		return nil, fmt.Errorf("failed to initialize consumer for %s: %w", source.Subject, err)
 	}
 
 	// Start the consumption loop
 	consumeCtx, err := consumer.Consume(func(msg jetstream.Msg) {
-		if handleErr := processor.Handle(Message{msg}); handleErr != nil {
-			logging.GetGlobalSlogger().ErrorContext(ctx, "message processing failed",
-				"subject", msg.Subject(),
-				"error", handleErr)
+		if handleErr := processor.Handle(ctx, Message{msg}); handleErr != nil {
+			if c.logger != nil {
+				c.logger.ErrorContext(ctx, "message processing failed",
+					"subject", msg.Subject(),
+					"error", handleErr)
+			}
 			msg.Nak() // Return to stream for retry
 			return
 		}
@@ -74,7 +81,7 @@ func (c *NATSJetstream) Consume(
 	})
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to start consumption for %s: %w", source.Topic, err)
+		return nil, fmt.Errorf("failed to start consumption for %s: %w", source.Subject, err)
 	}
 
 	return &messaging.Subscription[jetstream.ConsumeContext]{
@@ -83,9 +90,9 @@ func (c *NATSJetstream) Consume(
 	}, nil
 }
 
-// Constructor
-func NewNATSJetstream() (*NATSJetstream, error) {
-	url := config.Get().NATS.URL
+// New connects to NATS and creates a JetStream client.
+func New(cfg Config, logger logging.Logger) (*Client, error) {
+	url := cfg.URL
 	if url == "" {
 		url = nats.DefaultURL
 	}
@@ -100,11 +107,11 @@ func NewNATSJetstream() (*NATSJetstream, error) {
 		return nil, fmt.Errorf("failed to create Jetstream instance: %w", err)
 	}
 
-	return &NATSJetstream{conn: conn, js: js}, nil
+	return &Client{conn: conn, js: js, logger: logger}, nil
 }
 
 // Close flushes in-flight publishes and closes the connection.
-func (c *NATSJetstream) Close() error {
+func (c *Client) Close() error {
 	if c == nil || c.conn == nil || c.conn.IsClosed() {
 		return nil
 	}

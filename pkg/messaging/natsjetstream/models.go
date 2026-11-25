@@ -1,4 +1,4 @@
-package nats
+package natsjetstream
 
 import (
 	"github.com/nats-io/nats.go/jetstream"
@@ -8,8 +8,8 @@ type Message struct {
 	Raw jetstream.Msg
 }
 
-// Acknowledge implements [messaging.Message].
-func (m Message) Acknowledge() error {
+// Ack implements [messaging.Message].
+func (m Message) Ack() error {
 	return m.Raw.Ack()
 }
 
@@ -23,7 +23,7 @@ func (m Message) Headers() map[string][]string {
 	return m.Raw.Headers()
 }
 
-// Reject implements [messaging.Message].
-func (m Message) Reject() error {
+// Nak implements [messaging.Message].
+func (m Message) Nak() error {
 	return m.Raw.Nak()
 }

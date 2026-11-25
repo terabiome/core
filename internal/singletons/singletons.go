@@ -7,10 +7,10 @@ import (
 
 	"github.com/terabiome/core/internal/config"
 	"github.com/terabiome/core/internal/database"
-	"github.com/terabiome/core/internal/messaging/nats"
 	"github.com/terabiome/core/internal/repositories/postgresql"
 	"github.com/terabiome/core/internal/services"
 	"github.com/terabiome/core/pkg/logging"
+	"github.com/terabiome/core/pkg/messaging/natsjetstream"
 )
 
 type Singletons struct {
@@ -31,7 +31,7 @@ type serviceSingletons struct {
 }
 
 type messagingSingletons struct {
-	NATSJetstream *nats.NATSJetstream
+	NATSJetstream *natsjetstream.Client
 }
 
 var sings *Singletons
@@ -79,7 +79,20 @@ func InitDispatch() error {
 		return errors.New("singletons.Init must run before InitDispatch")
 	}
 
-	js, err := nats.NewNATSJetstream()
+	js, err := natsjetstream.New(
+		natsjetstream.Config{
+			URL: config.Get().NATS.URL,
+		},
+		logging.NewSlogger(
+			logging.Config{
+				Level:  config.Get().Logger.Level,
+				Format: config.Get().Logger.Format,
+			},
+			map[string]any{
+				"scope": "jetstream",
+			},
+		),
+	)
 	if err != nil {
 		return fmt.Errorf("failed to setup NATS Jetstream wrapper: %w", err)
 	}

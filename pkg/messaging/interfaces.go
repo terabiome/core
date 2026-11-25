@@ -6,24 +6,24 @@ import (
 
 type Message interface {
 	Data() []byte
-	Acknowledge() error
-	Reject() error
+	Ack() error
+	Nak() error
 	Headers() map[string][]string
 }
 
-type Producer interface {
-	Produce(ctx context.Context, destination Destination, data []byte) error
+type Publisher interface {
+	Publish(ctx context.Context, destination Destination, data []byte) error
 }
 
 type Consumer[M Message, S any] interface {
 	Consume(ctx context.Context, source Source, processor Processor[M]) (*Subscription[S], error)
 }
 
-type Bridge[M Message, S any] interface {
-	Producer
+type Transport[M Message, S any] interface {
+	Publisher
 	Consumer[M, S]
 }
 
 type Processor[M Message] interface {
-	Handle(input M) error
+	Handle(ctx context.Context, message M) error
 }
