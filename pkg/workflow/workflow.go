@@ -38,7 +38,7 @@ func (w *WorkflowExecutor) ExecuteAsDAG(ctx context.Context, seqs []manifestcont
 		return nil
 	}
 
-	if err := validateSequenceGraph(seqs); err != nil {
+	if err := ValidateSequenceGraph(seqs); err != nil {
 		return err
 	}
 
@@ -136,7 +136,7 @@ func (w *WorkflowExecutor) ExecuteAsDAG(ctx context.Context, seqs []manifestcont
 	return errors.Join(runErrs...)
 }
 
-func validateSequenceGraph(seqs []manifestcontracts.UnitOfWorkSequence) error {
+func ValidateSequenceGraph(seqs []manifestcontracts.UnitOfWorkSequence) error {
 	names := make(map[string]struct{}, len(seqs))
 	for _, seq := range seqs {
 		if _, exists := names[seq.Name]; exists {
