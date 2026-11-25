@@ -5,9 +5,9 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/terabiome/core/internal/writers"
 	manifestcontracts "github.com/terabiome/core/pkg/contracts/manifest"
 	shellexecutors "github.com/terabiome/core/pkg/executors/shell"
+	journalerspkg "github.com/terabiome/core/pkg/journalers"
 	loggingpkg "github.com/terabiome/core/pkg/logging"
 	operationspkg "github.com/terabiome/core/pkg/operations"
 	workflowpkg "github.com/terabiome/core/pkg/workflow"
@@ -31,10 +31,10 @@ func NewShellRunner(
 }
 
 func (r *ShellRunner) Run(ctx context.Context, uow manifestcontracts.UnitOfWork) error {
-	journaler, _ := writers.NewJournaler(writers.JournalerParameters{
+	journaler, _ := journalerspkg.NewJournaler(journalerspkg.JournalerParameters{
 		MaxRecords:    50,
 		FlushInterval: 1 * time.Second,
-		BatchFn: func(entries []writers.JournalEntry) {
+		BatchFn: func(entries []journalerspkg.JournalEntry) {
 			for _, e := range entries {
 				r.logger.InfoContext(ctx, e.Message,
 					"timestamp", e.Timestamp.Format(time.RFC3339),
