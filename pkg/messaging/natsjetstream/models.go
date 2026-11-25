@@ -1,6 +1,8 @@
 package natsjetstream
 
 import (
+	"time"
+
 	"github.com/nats-io/nats.go/jetstream"
 )
 
@@ -26,4 +28,19 @@ func (m Message) Headers() map[string][]string {
 // Nak implements [messaging.Message].
 func (m Message) Nak() error {
 	return m.Raw.Nak()
+}
+
+// NakWithDelay implements [messaging.Message].
+func (m Message) NakWithDelay(delay time.Duration) error {
+	return m.Raw.NakWithDelay(delay)
+}
+
+// InProgress implements [messaging.Message].
+func (m Message) InProgress() error {
+	return m.Raw.InProgress()
+}
+
+// Term implements [messaging.Message].
+func (m Message) Term() error {
+	return m.Raw.Term()
 }
