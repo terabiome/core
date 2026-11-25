@@ -1,9 +1,16 @@
 package kernel
 
+type action string
+
+const (
+	actionAdd    action = "add"
+	actionRemove action = "remove"
+)
+
 type kernelModuleConfEntry struct {
 	Path   string `mapstructure:"path"`
 	Value  string `mapstructure:"value"`
-	Action string `mapstructure:"action"` // "add" or "remove"
+	Action action `mapstructure:"action"`
 }
 
 type sysctlConfEntry struct {

@@ -25,9 +25,16 @@ func (op *ModifyModulesConfigOperation) Name() string {
 
 func (op *ModifyModulesConfigOperation) PreCheck(env *operationspkg.OperationEnvironment) error {
 	pathPattern := regexp.MustCompile(`^/etc/modules-load.d/[a-zA-Z0-9_\-]+\.conf$`)
+	modulePattern := regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
 	for _, entry := range op.parameters.Entries {
 		if !pathPattern.MatchString(entry.Path) {
 			return fmt.Errorf("precheck failed: invalid module path '%s'", entry.Path)
+		}
+		if entry.Action != actionAdd && entry.Action != actionRemove {
+			return fmt.Errorf("precheck failed: module action must be %q or %q", actionAdd, actionRemove)
+		}
+		if !modulePattern.MatchString(entry.Value) {
+			return fmt.Errorf("precheck failed: invalid module name '%s'", entry.Value)
 		}
 	}
 	return nil
@@ -59,9 +66,9 @@ func (op *ModifyModulesConfigOperation) Run(ctx context.Context, env *operations
 
 		// Apply action in memory
 		switch entry.Action {
-		case "add":
+		case actionAdd:
 			fileModules[entry.Path][entry.Value] = true
-		case "remove":
+		case actionRemove:
 			delete(fileModules[entry.Path], entry.Value)
 		}
 	}
