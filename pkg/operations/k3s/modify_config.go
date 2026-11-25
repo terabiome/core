@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/go-viper/mapstructure/v2"
+	"github.com/terabiome/core/pkg/helpers"
 	operationspkg "github.com/terabiome/core/pkg/operations"
 	"go.yaml.in/yaml/v4"
 )
@@ -43,8 +44,7 @@ func (op *ModifyConfigOperation) Run(ctx context.Context, env *operationspkg.Ope
 			return fmt.Errorf("failed to marshal k3s config: %w", err)
 		}
 
-		// Atomic Write
-		if err := os.WriteFile(entry.Path, yamlData, 0644); err != nil {
+		if err := helpers.File().WriteFileAtomic(entry.Path, yamlData, 0644); err != nil {
 			return fmt.Errorf("failed to write k3s config %s: %w", entry.Path, err)
 		}
 		fmt.Fprintf(env.Journaler, "[INFO] Updated K3s config in %s\n", entry.Path)
