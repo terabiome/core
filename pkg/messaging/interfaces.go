@@ -2,12 +2,16 @@ package messaging
 
 import (
 	"context"
+	"time"
 )
 
 type Message interface {
 	Data() []byte
 	Ack() error
 	Nak() error
+	NakWithDelay(delay time.Duration) error
+	InProgress() error
+	Term() error
 	Headers() map[string][]string
 }
 
