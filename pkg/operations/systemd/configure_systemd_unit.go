@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 
 	"github.com/go-viper/mapstructure/v2"
-	"github.com/terabiome/core/internal/operations"
 	operationspkg "github.com/terabiome/core/pkg/operations"
 )
 
@@ -17,7 +16,7 @@ type ConfigureUnitOperation struct {
 }
 
 func (op *ConfigureUnitOperation) Name() string {
-	return string(operations.OperationNameSystemdConfigureUnit)
+	return NameConfigureUnit
 }
 
 func (op *ConfigureUnitOperation) PreCheck(env *operationspkg.OperationEnvironment) error {

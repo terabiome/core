@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/go-viper/mapstructure/v2"
-	"github.com/terabiome/core/internal/operations"
 	shellexecutors "github.com/terabiome/core/pkg/executors/shell"
 	operationspkg "github.com/terabiome/core/pkg/operations"
 )
@@ -26,7 +25,7 @@ type CmdOperation struct {
 }
 
 func (op *CmdOperation) Name() string {
-	return string(operations.OperationNameShellCmd)
+	return Name
 }
 
 func (op *CmdOperation) PreCheck(env *operationspkg.OperationEnvironment) error {

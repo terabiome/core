@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 
 	"github.com/go-viper/mapstructure/v2"
-	"github.com/terabiome/core/internal/operations"
 	operationspkg "github.com/terabiome/core/pkg/operations"
 )
 
@@ -19,7 +18,7 @@ type InstallBinaryOperation struct {
 }
 
 func (op *InstallBinaryOperation) Name() string {
-	return string(operations.OperationNameK3sInstallBinary)
+	return NameInstallBinary
 }
 
 func (op *InstallBinaryOperation) PreCheck(env *operationspkg.OperationEnvironment) error {

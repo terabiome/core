@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/terabiome/core/internal/registry"
 	"github.com/terabiome/core/internal/runner"
 	manifestcontracts "github.com/terabiome/core/pkg/contracts/manifest"
 	"github.com/terabiome/core/pkg/logging"
@@ -37,6 +38,7 @@ func processShellSubcommand(ctx context.Context, shellInput shellCLIInput) error
 
 	shellRunner := runner.NewShellRunner(
 		logging.GetGlobalSlogger(),
+		registry.NewDefault(),
 	)
 
 	if shellRunner == nil {

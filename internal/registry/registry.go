@@ -1,33 +1,28 @@
 package registry
 
 import (
-	"fmt"
-
-	"github.com/terabiome/core/internal/operations"
-	k3soperations "github.com/terabiome/core/internal/operations/k3s"
-	kerneloperations "github.com/terabiome/core/internal/operations/kernel"
-	shelloperations "github.com/terabiome/core/internal/operations/shell"
-	systemdoperations "github.com/terabiome/core/internal/operations/systemd"
-	operationspkg "github.com/terabiome/core/pkg/operations"
+	"github.com/terabiome/core/pkg/operations"
+	k3soperations "github.com/terabiome/core/pkg/operations/k3s"
+	kerneloperations "github.com/terabiome/core/pkg/operations/kernel"
+	shelloperations "github.com/terabiome/core/pkg/operations/shell"
+	systemdoperations "github.com/terabiome/core/pkg/operations/systemd"
 )
 
-var registry = OperationRegistry{
-	string(operations.OperationNameShellCmd):                     shelloperations.NewCmdOperation,
-	string(operations.OperationNameKernelModifyModulesConfig):    kerneloperations.NewModifyModulesConfigOperation,
-	string(operations.OperationNameKernelModifyParametersConfig): kerneloperations.NewModifyParametersConfigOperation,
-	string(operations.OperationNameSystemdConfigureUnit):         systemdoperations.NewConfigureUnitOperation,
-	string(operations.OperationNameK3sModifyConfig):              k3soperations.NewModifyConfigOperation,
-	string(operations.OperationNameK3sInstallBinary):             k3soperations.NewInstallBinaryOperation,
-}
+func NewDefault() *operations.Registry {
+	registry := operations.NewRegistry()
 
-func Get(name string) (operationspkg.Operation, error) {
-	factory, exists := registry[name]
-	if !exists {
-		return nil, fmt.Errorf("task '%s' not found in registry", name)
+	register := func(name string, factory operations.Factory) {
+		if err := registry.Register(name, factory); err != nil {
+			panic(err)
+		}
 	}
-	return factory(), nil
-}
 
-func ValidateAll(uow any) error {
-	return nil
+	register(shelloperations.Name, shelloperations.NewCmdOperation)
+	register(kerneloperations.NameModifyModulesConfig, kerneloperations.NewModifyModulesConfigOperation)
+	register(kerneloperations.NameModifyParametersConfig, kerneloperations.NewModifyParametersConfigOperation)
+	register(systemdoperations.NameConfigureUnit, systemdoperations.NewConfigureUnitOperation)
+	register(k3soperations.NameModifyConfig, k3soperations.NewModifyConfigOperation)
+	register(k3soperations.NameInstallBinary, k3soperations.NewInstallBinaryOperation)
+
+	return registry
 }

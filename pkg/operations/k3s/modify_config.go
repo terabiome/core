@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 
 	"github.com/go-viper/mapstructure/v2"
-	"github.com/terabiome/core/internal/operations"
 	operationspkg "github.com/terabiome/core/pkg/operations"
 	"go.yaml.in/yaml/v4"
 )
@@ -20,7 +19,7 @@ type ModifyConfigOperation struct {
 }
 
 func (op *ModifyConfigOperation) Name() string {
-	return string(operations.OperationNameK3sModifyConfig)
+	return NameModifyConfig
 }
 
 func (op *ModifyConfigOperation) PreCheck(env *operationspkg.OperationEnvironment) error {

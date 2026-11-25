@@ -10,20 +10,22 @@ import (
 	manifestcontracts "github.com/terabiome/core/pkg/contracts/manifest"
 	shellexecutors "github.com/terabiome/core/pkg/executors/shell"
 	loggingpkg "github.com/terabiome/core/pkg/logging"
-	"github.com/terabiome/core/pkg/operations"
 	operationspkg "github.com/terabiome/core/pkg/operations"
 )
 
 type ShellRunner struct {
 	logger         loggingpkg.Logger
+	registry       *operationspkg.Registry
 	maxConcurrency int
 }
 
 func NewShellRunner(
 	logger loggingpkg.Logger,
+	registry *operationspkg.Registry,
 ) *ShellRunner {
 	return &ShellRunner{
 		logger:         logger,
+		registry:       registry,
 		maxConcurrency: runtime.NumCPU(),
 	}
 }
@@ -49,13 +51,13 @@ func (r *ShellRunner) Run(ctx context.Context, uow manifestcontracts.UnitOfWork)
 		Executor:  shellexecutors.NewCommandExecutor(r.logger),
 	}
 
-	wfExec := executor.NewWorkflowExecutor(env, r.maxConcurrency)
+	wfExec := executor.NewWorkflowExecutor(env, r.registry, r.maxConcurrency)
 	r.logger.InfoContext(ctx, "Starting local execution...")
 	return wfExec.ExecuteAsDAG(ctx, uow.Sequences)
 }
 
-func (r *ShellRunner) probeNode() operations.NodeInfo {
-	return operations.NodeInfo{
+func (r *ShellRunner) probeNode() operationspkg.NodeInfo {
+	return operationspkg.NodeInfo{
 		MachineID: "local-shell",
 		Arch:      runtime.GOARCH,
 		OS:        runtime.GOOS,
