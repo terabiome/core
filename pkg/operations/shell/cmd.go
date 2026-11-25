@@ -12,11 +12,20 @@ import (
 	operationspkg "github.com/terabiome/core/pkg/operations"
 )
 
-var whitelistedCommands = map[string][]regexp.Regexp{
-	"systemctl":    {},
-	"sysctl":       {},
-	"modprobe":     {},
-	"firewall-cmd": {},
+var whitelistedCommands = map[string][]*regexp.Regexp{
+	"systemctl": {
+		regexp.MustCompile(`^systemctl daemon-reload$`),
+		regexp.MustCompile(`^systemctl enable --now [A-Za-z0-9][A-Za-z0-9_.@-]*$`),
+	},
+	"sysctl": {
+		regexp.MustCompile(`^sysctl --system$`),
+	},
+	"modprobe": {
+		regexp.MustCompile(`^modprobe( [A-Za-z0-9_-]+)+$`),
+	},
+	"firewall-cmd": {
+		regexp.MustCompile(`^firewall-cmd --reload$`),
+	},
 }
 
 type CmdOperation struct {
@@ -34,16 +43,12 @@ func (op *CmdOperation) PreCheck(env *operationspkg.OperationEnvironment) error 
 		return fmt.Errorf("command is not allowed to run")
 	}
 
-	if len(regexes) > 0 {
-		// greedy, match 1st and return immediately
-		for _, regex := range regexes {
-			if !regex.MatchString(op.parameters.Command) {
-				return fmt.Errorf("command does not match the format: %s", regex.String())
-			}
+	for _, regex := range regexes {
+		if regex.MatchString(op.parameters.Command) {
+			return nil
 		}
 	}
-
-	return nil
+	return fmt.Errorf("command is not allowed to run")
 }
 
 func (op *CmdOperation) SetParameters(parameters map[string]any) error {
