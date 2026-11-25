@@ -3,14 +3,15 @@ package k3s
 import (
 	"context"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 	"path/filepath"
 
 	"github.com/go-viper/mapstructure/v2"
+	"github.com/terabiome/core/pkg/helpers"
 	operationspkg "github.com/terabiome/core/pkg/operations"
 )
+
+const maxK3sBinaryBytes = 256 << 20
 
 type InstallBinaryOperation struct {
 	rawParameters map[string]any
@@ -25,59 +26,71 @@ func (op *InstallBinaryOperation) PreCheck(env *operationspkg.OperationEnvironme
 	if op.parameters.Version == "" {
 		return fmt.Errorf("missing k3s version")
 	}
+	if _, err := k3sArch(env.NodeInfo.Arch); err != nil {
+		return err
+	}
 	return nil
 }
 
 func (op *InstallBinaryOperation) Run(ctx context.Context, env *operationspkg.OperationEnvironment) error {
-	var (
-		binaryName = "k3s"
-		arch       = env.NodeInfo.Arch
-	)
-	switch arch {
-	case "arm":
-		arch = "armhf" // K3s uses armhf for 32-bit ARM
-	case "aarch64":
-		arch = "arm64"
+	arch, err := k3sArch(env.NodeInfo.Arch)
+	if err != nil {
+		return err
 	}
-
+	binaryName := "k3s"
 	if arch != "amd64" {
 		binaryName = fmt.Sprintf("%s-%s", binaryName, arch)
 	}
 
-	url := fmt.Sprintf("%s/%s/%s", defaultK3sInstallBaseURL, op.parameters.Version, binaryName)
+	base := fmt.Sprintf("%s/%s", defaultK3sInstallBaseURL, op.parameters.Version)
+	binaryURL := base + "/" + binaryName
+	sumURL := fmt.Sprintf("%s/sha256sum-%s.txt", base, arch)
 
-	fmt.Fprintf(env.Journaler, "Downloading K3s binary (%s) from %s\n", arch, url)
+	fmt.Fprintf(env.Journaler, "Downloading K3s binary (%s) from %s\n", arch, binaryURL)
 
-	resp, err := http.Get(url)
+	sumFile, err := helpers.HTTP().Get(ctx, sumURL, 1<<20)
 	if err != nil {
-		return fmt.Errorf("failed to download k3s binary: %w", err)
+		return fmt.Errorf("failed to download k3s checksum: %w", err)
 	}
-	defer resp.Body.Close()
+	want, err := helpers.File().Checksum(sumFile, binaryName)
+	if err != nil {
+		return err
+	}
 
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to download k3s binary: HTTP %d", resp.StatusCode)
+	if err := os.MkdirAll(filepath.Dir(defaultK3sBinaryPath), 0755); err != nil {
+		return fmt.Errorf("failed to create %s: %w", filepath.Dir(defaultK3sBinaryPath), err)
 	}
 
 	tmpFile, err := os.CreateTemp(filepath.Dir(defaultK3sBinaryPath), "k3s-*.tmp")
 	if err != nil {
 		return fmt.Errorf("failed to create temp file: %w", err)
 	}
-	defer os.Remove(tmpFile.Name()) // Cleanup if we fail
+	defer os.Remove(tmpFile.Name())
 
-	if _, err := io.Copy(tmpFile, resp.Body); err != nil {
-		return fmt.Errorf("failed to save binary content: %w", err)
+	if err := helpers.HTTP().DownloadTo(ctx, binaryURL, tmpFile, maxK3sBinaryBytes); err != nil {
+		tmpFile.Close()
+		return fmt.Errorf("failed to download k3s binary: %w", err)
 	}
-	tmpFile.Close()
+	if err := tmpFile.Close(); err != nil {
+		return err
+	}
+
+	got, err := helpers.File().GetSHA256(tmpFile.Name())
+	if err != nil {
+		return err
+	}
+	if got != want {
+		return fmt.Errorf("k3s binary checksum mismatch")
+	}
 
 	if err := os.Chmod(tmpFile.Name(), 0755); err != nil {
 		return fmt.Errorf("failed to set permissions: %w", err)
 	}
-
 	if err := os.Rename(tmpFile.Name(), defaultK3sBinaryPath); err != nil {
 		return fmt.Errorf("failed to install binary to %s: %w", defaultK3sBinaryPath, err)
 	}
 
-	fmt.Fprintf(env.Journaler, "K3s v%s binary installed at %s\n", op.parameters.Version, defaultK3sBinaryPath)
+	fmt.Fprintf(env.Journaler, "K3s %s binary installed at %s\n", op.parameters.Version, defaultK3sBinaryPath)
 	return nil
 }
 
