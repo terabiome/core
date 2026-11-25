@@ -24,8 +24,10 @@ sequences:
           entries:
             - path: /etc/modules-load.d/k8s.conf
               value: br_netfilter
+              action: add
             - path: /etc/modules-load.d/k8s.conf
               value: overlay
+              action: add
       
       # Activate modules immediately
       - name: shell.cmd
