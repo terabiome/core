@@ -51,7 +51,7 @@ func (r *ShellRunner) Run(ctx context.Context, uow manifestcontracts.UnitOfWork)
 		Executor:  shellexecutors.NewCommandExecutor(r.logger),
 	}
 
-	wfExec := workflowpkg.NewWorkflowExecutor(env, r.registry, r.maxConcurrency)
+	wfExec := workflowpkg.NewWorkflowExecutor(env, r.registry, r.maxConcurrency, nil)
 	r.logger.InfoContext(ctx, "Starting local execution...")
 	return wfExec.ExecuteAsDAG(ctx, uow.Sequences)
 }

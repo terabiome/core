@@ -15,6 +15,7 @@ import (
 type WorkflowExecutor struct {
 	env            *operationspkg.OperationEnvironment
 	registry       Registry
+	stepHandler    StepHandler
 	maxConcurrency int
 }
 
@@ -22,6 +23,7 @@ func NewWorkflowExecutor(
 	env *operationspkg.OperationEnvironment,
 	registry Registry,
 	maxConcurrency int,
+	stepHandler StepHandler,
 ) *WorkflowExecutor {
 	if maxConcurrency <= 0 {
 		maxConcurrency = 4
@@ -29,6 +31,7 @@ func NewWorkflowExecutor(
 	return &WorkflowExecutor{
 		env:            env,
 		registry:       registry,
+		stepHandler:    stepHandler,
 		maxConcurrency: maxConcurrency,
 	}
 }
@@ -83,7 +86,7 @@ func (w *WorkflowExecutor) ExecuteAsDAG(ctx context.Context, seqs []manifestcont
 			go func(s manifestcontracts.UnitOfWorkSequence) {
 				outcomes <- outcome{
 					name: s.Name,
-					err:  NewSequenceExecutor(w.env, w.registry).Execute(ctx, s),
+					err:  NewSequenceExecutor(w.env, w.registry, w.stepHandler).Execute(ctx, s),
 				}
 			}(seq)
 		}
@@ -202,7 +205,7 @@ func (w *WorkflowExecutor) runBatch(ctx context.Context, batch manifestcontracts
 				return
 			}
 
-			exec := NewSequenceExecutor(w.env, w.registry)
+			exec := NewSequenceExecutor(w.env, w.registry, w.stepHandler)
 			if err := exec.Execute(ctx, s); err != nil {
 				errChan <- fmt.Errorf("sequence %s failed: %w", s.Name, err)
 			}
