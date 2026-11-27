@@ -1,4 +1,4 @@
-package consumerbase
+package consumer
 
 import (
 	"io"

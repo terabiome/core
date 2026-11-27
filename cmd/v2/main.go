@@ -23,14 +23,11 @@ const (
 
 type subcommand string
 
-const (
-	consumerSubcommand subcommand = "consumer"
-)
-
 type cliInput struct {
 	subcommand subcommand
 	shell      shellCLIInput
 	api        apiCLIInput
+	consumer   consumerCLIInput
 }
 
 func NewCLIInput() *cliInput {
@@ -47,6 +44,16 @@ func (i *cliInput) Parse() error {
 
 	apiCmd := flag.NewFlagSet(string(apiSubcommand), flag.ExitOnError)
 	apiCmd.StringVar(&i.api.Addr, "addr", ":8080", "Address for the HTTP API")
+
+	consumerCmd := flag.NewFlagSet(string(consumerSubcommand), flag.ExitOnError)
+	consumerCmd.StringVar(&i.consumer.NATSURL, "nats-url", "nats://127.0.0.1:4222", "NATS server URL")
+	consumerCmd.StringVar(&i.consumer.Stream, "stream", "", "JetStream stream to consume from")
+	consumerCmd.Var(&i.consumer.Subjects, "subject", "Subject to consume (repeatable)")
+	consumerCmd.IntVar(&i.consumer.Concurrency, "concurrency", 0, "Maximum concurrent sequences (0 = number of CPUs)")
+	consumerCmd.DurationVar(&i.consumer.AckWait, "ack-wait", 0, "Consumer acknowledgement wait (0 = server default)")
+	consumerCmd.IntVar(&i.consumer.MaxDeliver, "max-deliver", 0, "Maximum delivery attempts (0 = server default)")
+	consumerCmd.StringVar(&i.consumer.Durable, "durable", "", "Durable consumer name (derived from stream and subject when empty)")
+	consumerCmd.BoolVar(&i.consumer.Override, "override-consumer", false, "Recreate the consumer if its configuration differs")
 
 	parseAndValidateFn := func(fs *flag.FlagSet, sPtr any) error {
 		return errors.Join(
@@ -65,6 +72,11 @@ func (i *cliInput) Parse() error {
 	case apiSubcommand:
 		i.subcommand = apiSubcommand
 		if err := parseAndValidateFn(apiCmd, &i.api); err != nil {
+			return err
+		}
+	case consumerSubcommand:
+		i.subcommand = consumerSubcommand
+		if err := parseAndValidateFn(consumerCmd, &i.consumer); err != nil {
 			return err
 		}
 	default:
@@ -99,6 +111,11 @@ func main() {
 		err = processShellSubcommand(mainCtx, cliInput.shell)
 	case apiSubcommand:
 		err = processAPISubcommand(mainCtx, cliInput.api)
+	case consumerSubcommand:
+		if os.Getuid() != 0 {
+			log.Fatalln("consumer subcommand must be run as root/sudo")
+		}
+		err = processConsumerSubcommand(mainCtx, cliInput.consumer)
 	}
 
 	if err != nil {
