@@ -7,6 +7,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/terabiome/core/internal/models"
+	pgdb "github.com/terabiome/core/pkg/database/postgresql"
+	"github.com/terabiome/core/pkg/database/postgresql/txmanager"
 	querybuilder "github.com/terabiome/core/pkg/querybuilder/postgresql/v2"
 )
 
@@ -28,7 +30,7 @@ func (r *UnitOfWorkPostgresRepository) Create(ctx context.Context, uow models.Un
 		return fmt.Errorf("failed to build query: %w", err)
 	}
 
-	db, err := NewPgxPoolWrapper(ctx, r.pool)
+	db, err := txmanager.NewPgxPoolWrapper(ctx, r.pool)
 	if err != nil {
 		return fmt.Errorf("failed to load transaction from ctx: %w", err)
 	}
@@ -52,7 +54,7 @@ func (r *UnitOfWorkPostgresRepository) UpdateByUUID(ctx context.Context, uow mod
 		return fmt.Errorf("failed to build query: %w", err)
 	}
 
-	db, err := NewPgxPoolWrapper(ctx, r.pool)
+	db, err := txmanager.NewPgxPoolWrapper(ctx, r.pool)
 	if err != nil {
 		return fmt.Errorf("failed to load transaction from ctx: %w", err)
 	}
@@ -80,7 +82,7 @@ func (r *UnitOfWorkPostgresRepository) FilterByUnstaged(ctx context.Context, lim
 		Limit(limit).
 		Build()
 
-	db, err := NewPgxPoolWrapper(ctx, r.pool)
+	db, err := txmanager.NewPgxPoolWrapper(ctx, r.pool)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load transaction from ctx: %w", err)
 	}
@@ -112,7 +114,7 @@ func (r *UnitOfWorkPostgresRepository) FilterByUnstaged(ctx context.Context, lim
 		}
 		return nil
 	}
-	if err := scanRows(rows, fn); err != nil {
+	if err := pgdb.ScanRows(rows, fn); err != nil {
 		return nil, fmt.Errorf("failed to scan units_of_work: %w", err)
 	}
 

@@ -9,6 +9,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/terabiome/core/internal/models"
 	"github.com/terabiome/core/internal/repositories"
+	pgdb "github.com/terabiome/core/pkg/database/postgresql"
+	"github.com/terabiome/core/pkg/database/postgresql/txmanager"
 	querybuilder "github.com/terabiome/core/pkg/querybuilder/postgresql/v2"
 )
 
@@ -35,7 +37,7 @@ func (r *DispatchPostgresRepository) BulkInsert(ctx context.Context, dispatches 
 		batch.Queue(q, d.UOWUUID, d.Status, d.Target, d.Payload)
 	}
 
-	db, err := NewPgxPoolWrapper(ctx, r.pool)
+	db, err := txmanager.NewPgxPoolWrapper(ctx, r.pool)
 	if err != nil {
 		return fmt.Errorf("failed to load transaction from ctx: %w", err)
 	}
@@ -67,7 +69,7 @@ func (r *DispatchPostgresRepository) FilterByStatus(ctx context.Context, status 
 		WhenLocked(querybuilder.WhenLockedSkipLockedExpr()).
 		Build()
 
-	db, err := NewPgxPoolWrapper(ctx, r.pool)
+	db, err := txmanager.NewPgxPoolWrapper(ctx, r.pool)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load transaction from ctx: %w", err)
 	}
@@ -109,7 +111,7 @@ func (r *DispatchPostgresRepository) FilterByStatus(ctx context.Context, status 
 		}
 		return nil
 	}
-	if err := scanRows(rows, fn); err != nil {
+	if err := pgdb.ScanRows(rows, fn); err != nil {
 		return nil, fmt.Errorf("failed to scan units_of_work: %w", err)
 	}
 
@@ -140,7 +142,7 @@ func (r *DispatchPostgresRepository) Update(ctx context.Context, input repositor
 		return fmt.Errorf("failed to build query: %w", err)
 	}
 
-	db, err := NewPgxPoolWrapper(ctx, r.pool)
+	db, err := txmanager.NewPgxPoolWrapper(ctx, r.pool)
 	if err != nil {
 		return fmt.Errorf("failed to load transaction from ctx: %w", err)
 	}
@@ -186,7 +188,7 @@ func (r *DispatchPostgresRepository) BulkUpdate(ctx context.Context, inputs []re
 		batch.Queue(q, args...)
 	}
 
-	db, err := NewPgxPoolWrapper(ctx, r.pool)
+	db, err := txmanager.NewPgxPoolWrapper(ctx, r.pool)
 	if err != nil {
 		return fmt.Errorf("failed to load transaction from ctx: %w", err)
 	}

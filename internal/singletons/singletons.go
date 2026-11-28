@@ -9,12 +9,13 @@ import (
 	"github.com/terabiome/core/internal/database"
 	"github.com/terabiome/core/internal/repositories/postgresql"
 	"github.com/terabiome/core/internal/services"
+	"github.com/terabiome/core/pkg/database/postgresql/txmanager"
 	"github.com/terabiome/core/pkg/logging"
 	"github.com/terabiome/core/pkg/messaging/natsjetstream"
 )
 
 type Singletons struct {
-	TxManager *postgresql.TxManager
+	TxManager *txmanager.TxManager
 	messagingSingletons
 	repositorySingletons
 	serviceSingletons
@@ -54,7 +55,7 @@ func Init() error {
 
 	// hardcode postgresql for now
 	pool := database.GetPool()
-	txManager := postgresql.NewTxManager(pool)
+	txManager := txmanager.NewTxManager(pool)
 	repositoryWrapper := repositorySingletons{
 		UnitOfWorkRepository: postgresql.NewUnitOfWorkPostgresRepository(pool),
 		DispatchRepository:   postgresql.NewDispatchPostgresRepository(pool),
