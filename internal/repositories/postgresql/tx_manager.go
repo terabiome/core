@@ -5,7 +5,9 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/terabiome/core/internal/repositories"
 )
 
 type TxManager struct {
@@ -52,4 +54,74 @@ func (m *TxManager) Wrap(ctx context.Context, fn func(ctx context.Context) error
 	}
 
 	return tx.Commit(ctx)
+}
+
+func loadTxFromCtx(ctx context.Context) (pgx.Tx, error) {
+	tx := ctx.Value(repositories.TxContextKey)
+	if tx == nil {
+		return nil, nil
+	}
+
+	pgxTx, ok := tx.(pgx.Tx)
+	if !ok {
+		return nil, fmt.Errorf("type mismatch: %T (instead of [pgx.Tx])", tx)
+	}
+
+	return pgxTx, nil
+}
+
+func withTxInCtx(ctx context.Context, tx pgx.Tx) (context.Context, error) {
+	if tx == nil {
+		return ctx, fmt.Errorf("injecting nil tx, ignored")
+	}
+
+	return context.WithValue(ctx, repositories.TxContextKey, tx), nil
+}
+
+type PgxPoolWrapper struct {
+	pool *pgxpool.Pool
+	tx   pgx.Tx
+}
+
+func NewPgxPoolWrapper(ctx context.Context, pool *pgxpool.Pool) (*PgxPoolWrapper, error) {
+	tx, err := loadTxFromCtx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &PgxPoolWrapper{pool: pool, tx: tx}, nil
+}
+
+func (w *PgxPoolWrapper) Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error) {
+	if w.tx != nil {
+		return w.tx.Exec(ctx, sql, args...)
+	}
+	return w.pool.Exec(ctx, sql, args...)
+}
+
+func (w *PgxPoolWrapper) Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error) {
+	if w.tx != nil {
+		return w.tx.Query(ctx, sql, args...)
+	}
+	return w.pool.Query(ctx, sql, args...)
+}
+
+func (w *PgxPoolWrapper) SendBatch(ctx context.Context, b *pgx.Batch) pgx.BatchResults {
+	if w.tx != nil {
+		return w.tx.SendBatch(ctx, b)
+	}
+	return w.pool.SendBatch(ctx, b)
+}
+
+func scanRows(rows pgx.Rows, callback func(pgx.Rows) error) error {
+	defer rows.Close()
+
+	if err := callback(rows); err != nil {
+		return fmt.Errorf("failed to scan, abort the set: %w", err)
+	}
+
+	if rows.Err() != nil {
+		return fmt.Errorf("something went wrong when querying: %w", rows.Err())
+	}
+
+	return nil
 }

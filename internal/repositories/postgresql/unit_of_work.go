@@ -11,12 +11,11 @@ import (
 )
 
 type UnitOfWorkPostgresRepository struct {
-	basePostgresRepository
+	pool *pgxpool.Pool
 }
 
 func NewUnitOfWorkPostgresRepository(pool *pgxpool.Pool) *UnitOfWorkPostgresRepository {
-	base := basePostgresRepository{pool}
-	return &UnitOfWorkPostgresRepository{base}
+	return &UnitOfWorkPostgresRepository{pool: pool}
 }
 
 // Create creates just an UOW record.
@@ -29,12 +28,12 @@ func (r *UnitOfWorkPostgresRepository) Create(ctx context.Context, uow models.Un
 		return fmt.Errorf("failed to build query: %w", err)
 	}
 
-	tx, err := loadTxFromCtx(ctx)
+	db, err := NewPgxPoolWrapper(ctx, r.pool)
 	if err != nil {
 		return fmt.Errorf("failed to load transaction from ctx: %w", err)
 	}
 
-	if _, err := r.wrappedExec(ctx, tx, q, uow.Name, uow.Config); err != nil {
+	if _, err := db.Exec(ctx, q, uow.Name, uow.Config); err != nil {
 		return fmt.Errorf("failed to create unit-of-work: %w", err)
 	}
 
@@ -53,12 +52,12 @@ func (r *UnitOfWorkPostgresRepository) UpdateByUUID(ctx context.Context, uow mod
 		return fmt.Errorf("failed to build query: %w", err)
 	}
 
-	tx, err := loadTxFromCtx(ctx)
+	db, err := NewPgxPoolWrapper(ctx, r.pool)
 	if err != nil {
 		return fmt.Errorf("failed to load transaction from ctx: %w", err)
 	}
 
-	if _, err := r.wrappedExec(ctx, tx, q, args...); err != nil {
+	if _, err := db.Exec(ctx, q, args...); err != nil {
 		return fmt.Errorf("failed to update unit-of-work: %w", err)
 	}
 
@@ -81,12 +80,12 @@ func (r *UnitOfWorkPostgresRepository) FilterByUnstaged(ctx context.Context, lim
 		Limit(limit).
 		Build()
 
-	tx, err := loadTxFromCtx(ctx)
+	db, err := NewPgxPoolWrapper(ctx, r.pool)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load transaction from ctx: %w", err)
 	}
 
-	rows, err := r.wrappedQuery(ctx, tx, q)
+	rows, err := db.Query(ctx, q)
 	// smh this err is usually ignore, but good to check
 	if err != nil {
 		return nil, fmt.Errorf("failed to query units_of_work: %w", err)
@@ -95,7 +94,7 @@ func (r *UnitOfWorkPostgresRepository) FilterByUnstaged(ctx context.Context, lim
 	// don't care about capacity, but a good heuristic is about 8 coz I like it
 	records := make([]models.UnitOfWork, 0, 8)
 
-	fn := func(tx pgx.Tx, r pgx.Rows) error {
+	fn := func(r pgx.Rows) error {
 		for r.Next() {
 			var record models.UnitOfWork
 			subErr := r.Scan(
@@ -113,7 +112,7 @@ func (r *UnitOfWorkPostgresRepository) FilterByUnstaged(ctx context.Context, lim
 		}
 		return nil
 	}
-	if err := r.execScanCallback(tx, rows, fn); err != nil {
+	if err := scanRows(rows, fn); err != nil {
 		return nil, fmt.Errorf("failed to scan units_of_work: %w", err)
 	}
 

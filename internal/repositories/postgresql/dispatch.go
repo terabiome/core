@@ -13,12 +13,11 @@ import (
 )
 
 type DispatchPostgresRepository struct {
-	basePostgresRepository
+	pool *pgxpool.Pool
 }
 
 func NewDispatchPostgresRepository(pool *pgxpool.Pool) *DispatchPostgresRepository {
-	base := basePostgresRepository{pool}
-	return &DispatchPostgresRepository{base}
+	return &DispatchPostgresRepository{pool: pool}
 }
 
 func (r *DispatchPostgresRepository) BulkInsert(ctx context.Context, dispatches []models.Dispatch) error {
@@ -36,12 +35,12 @@ func (r *DispatchPostgresRepository) BulkInsert(ctx context.Context, dispatches 
 		batch.Queue(q, d.UOWUUID, d.Status, d.Target, d.Payload)
 	}
 
-	tx, err := loadTxFromCtx(ctx)
+	db, err := NewPgxPoolWrapper(ctx, r.pool)
 	if err != nil {
 		return fmt.Errorf("failed to load transaction from ctx: %w", err)
 	}
 
-	if err := r.wrappedSendBatch(ctx, tx, &batch).Close(); err != nil {
+	if err := db.SendBatch(ctx, &batch).Close(); err != nil {
 		return fmt.Errorf("failed to insert dispatch batch: %w", err)
 	}
 
@@ -68,12 +67,12 @@ func (r *DispatchPostgresRepository) FilterByStatus(ctx context.Context, status 
 		WhenLocked(querybuilder.WhenLockedSkipLockedExpr()).
 		Build()
 
-	tx, err := loadTxFromCtx(ctx)
+	db, err := NewPgxPoolWrapper(ctx, r.pool)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load transaction from ctx: %w", err)
 	}
 
-	rows, err := r.wrappedQuery(ctx, tx, q)
+	rows, err := db.Query(ctx, q)
 	// smh this err is usually ignore, but good to check
 	if err != nil {
 		return nil, fmt.Errorf("failed to query dispatches: %w", err)
@@ -84,7 +83,7 @@ func (r *DispatchPostgresRepository) FilterByStatus(ctx context.Context, status 
 		Records: make([]repositories.DispatchFilterRecord, 0, 8),
 	}
 
-	fn := func(tx pgx.Tx, r pgx.Rows) error {
+	fn := func(r pgx.Rows) error {
 		for r.Next() {
 			var (
 				dbRecord models.Dispatch
@@ -110,7 +109,7 @@ func (r *DispatchPostgresRepository) FilterByStatus(ctx context.Context, status 
 		}
 		return nil
 	}
-	if err := r.execScanCallback(tx, rows, fn); err != nil {
+	if err := scanRows(rows, fn); err != nil {
 		return nil, fmt.Errorf("failed to scan units_of_work: %w", err)
 	}
 
@@ -141,12 +140,12 @@ func (r *DispatchPostgresRepository) Update(ctx context.Context, input repositor
 		return fmt.Errorf("failed to build query: %w", err)
 	}
 
-	tx, err := loadTxFromCtx(ctx)
+	db, err := NewPgxPoolWrapper(ctx, r.pool)
 	if err != nil {
 		return fmt.Errorf("failed to load transaction from ctx: %w", err)
 	}
 
-	if _, err := r.wrappedExec(ctx, tx, q, args...); err != nil {
+	if _, err := db.Exec(ctx, q, args...); err != nil {
 		return fmt.Errorf("failed to update dispatch: %w", err)
 	}
 
@@ -187,12 +186,12 @@ func (r *DispatchPostgresRepository) BulkUpdate(ctx context.Context, inputs []re
 		batch.Queue(q, args...)
 	}
 
-	tx, err := loadTxFromCtx(ctx)
+	db, err := NewPgxPoolWrapper(ctx, r.pool)
 	if err != nil {
 		return fmt.Errorf("failed to load transaction from ctx: %w", err)
 	}
 
-	if err := r.wrappedSendBatch(ctx, tx, &batch).Close(); err != nil {
+	if err := db.SendBatch(ctx, &batch).Close(); err != nil {
 		return fmt.Errorf("failed to bulk update dispatches: %w", err)
 	}
 
