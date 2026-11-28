@@ -79,7 +79,7 @@ func InitDispatch() error {
 		return errors.New("singletons.Init must run before InitDispatch")
 	}
 
-	js, err := natsjetstream.New(
+	js := natsjetstream.New(
 		natsjetstream.Config{
 			URL: config.Get().NATS.URL,
 		},
@@ -93,7 +93,7 @@ func InitDispatch() error {
 			},
 		),
 	)
-	if err != nil {
+	if err := js.Connect(); err != nil {
 		return fmt.Errorf("failed to setup NATS Jetstream wrapper: %w", err)
 	}
 

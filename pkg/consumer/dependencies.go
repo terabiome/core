@@ -1,8 +1,6 @@
 package consumer
 
 import (
-	"fmt"
-
 	shellexecutors "github.com/terabiome/core/pkg/executors/shell"
 	"github.com/terabiome/core/pkg/logging"
 	"github.com/terabiome/core/pkg/messaging/natsjetstream"
@@ -31,11 +29,7 @@ func consumerFrom(config Config, deps *Dependencies, logger logging.Logger) (Mes
 		return deps.Consumer, false, nil
 	}
 
-	created, err := natsjetstream.New(config.Jetstream, logger)
-	if err != nil {
-		return nil, false, fmt.Errorf("failed to create jetstream client: %w", err)
-	}
-	return created, true, nil
+	return natsjetstream.New(config.Jetstream, logger), true, nil
 }
 
 func registryFrom(deps *Dependencies, logger logging.Logger) (Registry, error) {

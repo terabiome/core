@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
@@ -16,9 +17,11 @@ type Config struct {
 }
 
 type Client struct {
+	cfg    Config
 	conn   *nats.Conn
 	js     jetstream.JetStream
 	logger logging.Logger
+	mu     sync.Mutex
 }
 
 // Publish implements [messaging.Publisher]
@@ -27,8 +30,13 @@ func (c *Client) Publish(
 	destination messaging.Destination,
 	data []byte,
 ) error {
+	js, err := c.jetstream()
+	if err != nil {
+		return err
+	}
+
 	// ignore ACK for now
-	_, err := c.js.Publish(ctx, destination.Subject, data)
+	_, err = js.Publish(ctx, destination.Subject, data)
 	if err != nil {
 		return fmt.Errorf("failed to publish to %s: %w", destination.Subject, err)
 	}
@@ -41,7 +49,12 @@ func (c *Client) Consume(
 	source messaging.Source,
 	processor messaging.Processor[messaging.Message],
 ) (*messaging.Subscription, error) {
-	stream, err := c.js.Stream(ctx, source.Stream)
+	js, err := c.jetstream()
+	if err != nil {
+		return nil, err
+	}
+
+	stream, err := js.Stream(ctx, source.Stream)
 	if err != nil {
 		return nil, fmt.Errorf("failed to access stream %s: %w", source.Stream, err)
 	}
@@ -121,29 +134,63 @@ func ensureConsumer(
 	return consumer, err
 }
 
-// New connects to NATS and creates a JetStream client.
-func New(cfg Config, logger logging.Logger) (*Client, error) {
-	url := cfg.URL
+// New constructs a client. It does not connect.
+func New(cfg Config, logger logging.Logger) *Client {
+	return &Client{cfg: cfg, logger: logger}
+}
+
+// Connect dials NATS. It is safe to call more than once.
+func (c *Client) Connect() error {
+	if c == nil {
+		return errors.New("jetstream client is nil")
+	}
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.conn != nil && !c.conn.IsClosed() {
+		return nil
+	}
+
+	url := c.cfg.URL
 	if url == "" {
 		url = nats.DefaultURL
 	}
 
 	conn, err := nats.Connect(url)
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to NATS server: %w", err)
+		return fmt.Errorf("failed to connect to NATS server: %w", err)
 	}
 
 	js, err := jetstream.New(conn)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create Jetstream instance: %w", err)
+		conn.Close()
+		return fmt.Errorf("failed to create Jetstream instance: %w", err)
 	}
 
-	return &Client{conn: conn, js: js, logger: logger}, nil
+	c.conn = conn
+	c.js = js
+	return nil
+}
+
+func (c *Client) jetstream() (jetstream.JetStream, error) {
+	if err := c.Connect(); err != nil {
+		return nil, err
+	}
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.js, nil
 }
 
 // Close flushes in-flight publishes and closes the connection.
 func (c *Client) Close() error {
-	if c == nil || c.conn == nil || c.conn.IsClosed() {
+	if c == nil {
+		return nil
+	}
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.conn == nil || c.conn.IsClosed() {
 		return nil
 	}
 	return c.conn.Drain()
