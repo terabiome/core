@@ -76,6 +76,10 @@ func (w *Worker) Run(ctx context.Context) error {
 		return err
 	}
 
+	if startableJournaler, ok := w.journaler.(interface{ Start() }); ok {
+		startableJournaler.Start()
+	}
+
 	// Handler work outlives the signal so draining can finish, until the
 	// shutdown timeout cancels it explicitly.
 	workCtx, cancelWork := context.WithCancel(context.WithoutCancel(ctx))

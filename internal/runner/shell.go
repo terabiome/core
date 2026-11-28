@@ -43,6 +43,7 @@ func (r *ShellRunner) Run(ctx context.Context, uow manifestcontracts.UnitOfWork)
 			}
 		},
 	})
+	journaler.Start()
 	defer journaler.Close()
 
 	env := &operationspkg.OperationEnvironment{
