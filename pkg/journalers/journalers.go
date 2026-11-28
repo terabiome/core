@@ -3,6 +3,7 @@ package journalers
 import (
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -36,9 +37,17 @@ type JournalerMetadata struct {
 	Source     string
 }
 
+const (
+	journalIdle uint32 = iota
+	journalRunning
+	journalClosed
+)
+
 type Journaler struct {
-	mu            sync.RWMutex
-	closed        bool
+	state         atomic.Uint32
+	start         func()
+	stop          func()
+	stopCh        chan struct{}
 	doneCh        chan struct{}
 	inputCh       chan JournalEntry
 	batchFn       BatchHandler
@@ -51,55 +60,60 @@ func NewJournaler(params JournalerParameters) (*Journaler, error) {
 		return nil, err
 	}
 	tj := &Journaler{
+		stopCh:        make(chan struct{}),
 		doneCh:        make(chan struct{}),
 		inputCh:       make(chan JournalEntry, 1<<10),
 		maxRecords:    params.MaxRecords,
 		flushInterval: params.FlushInterval,
 		batchFn:       params.BatchFn,
 	}
-	go tj.process()
+	tj.start = sync.OnceFunc(func() {
+		if !tj.state.CompareAndSwap(journalIdle, journalRunning) {
+			return
+		}
+		go tj.process()
+	})
+	tj.stop = sync.OnceFunc(func() {
+		if tj.state.Swap(journalClosed) == journalRunning {
+			close(tj.stopCh)
+			<-tj.doneCh
+		}
+	})
 	return tj, nil
 }
 
-func (t *Journaler) Write(p []byte) (n int, err error) {
-	if len(p) == 0 {
-		return 0, nil
-	}
+func (t *Journaler) Start() {
+	t.start()
+}
 
-	t.mu.RLock()
-	defer t.mu.RUnlock()
-	if t.closed {
+func (t *Journaler) Write(p []byte) (n int, err error) {
+	if len(p) == 0 || t.state.Load() == journalClosed {
 		return len(p), nil
 	}
 
-	entry := JournalEntry{
+	select {
+	case t.inputCh <- JournalEntry{
 		Timestamp: time.Now(),
 		Source:    "stream",
 		Message:   string(p),
-	}
-	select {
-	case t.inputCh <- entry:
+	}:
 	default:
-		return len(p), nil // Drop if full
 	}
 	return len(p), nil
 }
 
 func (t *Journaler) Log(msg string, metadata JournalerMetadata) {
-	t.mu.RLock()
-	defer t.mu.RUnlock()
-	if t.closed {
+	if t.state.Load() == journalClosed {
 		return
 	}
 
-	entry := JournalEntry{
+	select {
+	case t.inputCh <- JournalEntry{
 		Timestamp:  time.Now(),
 		Message:    msg,
 		StreamUUID: metadata.StreamUUID,
 		Source:     metadata.Source,
-	}
-	select {
-	case t.inputCh <- entry:
+	}:
 	default:
 	}
 }
@@ -122,30 +136,32 @@ func (t *Journaler) process() {
 
 	for {
 		select {
-		case entry, ok := <-t.inputCh:
-			if !ok {
-				flush()
-				return
-			}
+		case entry := <-t.inputCh:
 			buffer = append(buffer, entry)
 			if len(buffer) >= t.maxRecords {
 				flush()
 			}
 		case <-ticker.C:
 			flush()
+		case <-t.stopCh:
+			for {
+				select {
+				case entry := <-t.inputCh:
+					buffer = append(buffer, entry)
+					if len(buffer) >= t.maxRecords {
+						flush()
+					}
+				default:
+					flush()
+					return
+				}
+			}
 		}
 	}
 }
 
 func (t *Journaler) Close() error {
-	t.mu.Lock()
-	if !t.closed {
-		t.closed = true
-		close(t.inputCh)
-	}
-	t.mu.Unlock()
-
-	<-t.doneCh
+	t.stop()
 	return nil
 }
 

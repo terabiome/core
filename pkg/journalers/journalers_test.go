@@ -20,6 +20,7 @@ func TestJournalerBatchOutlivesFlush(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewJournaler() = %v", err)
 	}
+	journaler.Start()
 
 	for _, message := range []string{"first", "second"} {
 		if _, err := journaler.Write([]byte(message)); err != nil {
@@ -77,6 +78,7 @@ func TestJournalerWriteDuringClose(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewJournaler() = %v", err)
 	}
+	journaler.Start()
 
 	var wg sync.WaitGroup
 	for range 8 {
