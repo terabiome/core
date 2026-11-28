@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 	"sync"
-	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/terabiome/core/internal/config"
+	"github.com/terabiome/core/pkg/database/postgresql"
 )
 
 type ConnectionType string
@@ -35,30 +35,9 @@ func Init() error {
 			return
 		}
 
-		poolCfg, parseErr := pgxpool.ParseConfig(cfg.DSN)
-		if parseErr != nil {
-			err = fmt.Errorf("failed to parse PGX config: %w", parseErr)
-			return
-		}
-
-		// Edge-optimized defaults
-		poolCfg.MinConns = 1
-		poolCfg.MaxConns = 5 // Slightly higher for concurrent workflows
-		poolCfg.MaxConnLifetime = time.Hour
-		poolCfg.MaxConnIdleTime = 30 * time.Minute
-
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-
-		pool, poolErr := pgxpool.NewWithConfig(ctx, poolCfg)
+		pool, poolErr := postgresql.Open(context.Background(), postgresql.Config{DSN: cfg.DSN})
 		if poolErr != nil {
-			err = fmt.Errorf("failed to create PGX pool: %w", poolErr)
-			return
-		}
-
-		if pingErr := pool.Ping(ctx); pingErr != nil {
-			pool.Close()
-			err = fmt.Errorf("failed to ping database: %w", pingErr)
+			err = fmt.Errorf("failed to open database: %w", poolErr)
 			return
 		}
 
