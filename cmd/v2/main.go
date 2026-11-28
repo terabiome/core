@@ -54,6 +54,7 @@ func (i *cliInput) Parse() error {
 	consumerCmd.IntVar(&i.consumer.MaxDeliver, "max-deliver", 0, "Maximum delivery attempts (0 = server default)")
 	consumerCmd.StringVar(&i.consumer.Durable, "durable", "", "Durable consumer name (derived from stream and subject when empty)")
 	consumerCmd.BoolVar(&i.consumer.Override, "override-consumer", false, "Recreate the consumer if its configuration differs")
+	consumerCmd.StringVar(&i.consumer.EventSubject, "event-subject", "", "JetStream subject for lifecycle events (disabled when empty)")
 
 	parseAndValidateFn := func(fs *flag.FlagSet, sPtr any) error {
 		return errors.Join(

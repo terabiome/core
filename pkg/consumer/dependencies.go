@@ -10,11 +10,11 @@ import (
 )
 
 type Dependencies struct {
-	Consumer  MessagingConsumer
-	Registry  Registry
-	Journaler Journaler
-	Steps     workflow.StepHandler
-	Wrap      func(Handler) Handler
+	Consumer     MessagingConsumer
+	Registry     Registry
+	Journaler    Journaler
+	EventHandler workflow.EventHandler
+	Wrap         func(Handler) Handler
 }
 
 func (d *Dependencies) orEmpty() *Dependencies {
@@ -60,7 +60,7 @@ func handlerFrom(config Config, deps *Dependencies, journaler Journaler, logger 
 		Executor:  shellexecutors.NewCommandExecutor(logger),
 	}
 	handler := Handler(&messageHandler{
-		executor: workflow.NewWorkflowExecutor(env, registry, config.Concurrency, deps.Steps),
+		executor: workflow.NewWorkflowExecutor(env, registry, config.Concurrency, deps.EventHandler),
 		logger:   logger,
 	})
 	if deps.Wrap != nil {

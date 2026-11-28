@@ -15,7 +15,7 @@ import (
 type WorkflowExecutor struct {
 	env            *operationspkg.OperationEnvironment
 	registry       Registry
-	stepHandler    StepHandler
+	eventHandler   EventHandler
 	maxConcurrency int
 }
 
@@ -23,7 +23,7 @@ func NewWorkflowExecutor(
 	env *operationspkg.OperationEnvironment,
 	registry Registry,
 	maxConcurrency int,
-	stepHandler StepHandler,
+	handler EventHandler,
 ) *WorkflowExecutor {
 	if maxConcurrency <= 0 {
 		maxConcurrency = 4
@@ -31,7 +31,7 @@ func NewWorkflowExecutor(
 	return &WorkflowExecutor{
 		env:            env,
 		registry:       registry,
-		stepHandler:    stepHandler,
+		eventHandler:   handler,
 		maxConcurrency: maxConcurrency,
 	}
 }
@@ -48,6 +48,21 @@ func (w *WorkflowExecutor) ExecuteAsDAG(
 		return nil
 	}
 
+	if err := w.emit(ctx, Event{Scope: ScopeDispatch, Stage: StageStart}); err != nil {
+		return err
+	}
+
+	return w.finish(
+		ctx,
+		Event{Scope: ScopeDispatch},
+		w.executeAsDAG(ctx, seqs),
+	)
+}
+
+func (w *WorkflowExecutor) executeAsDAG(
+	ctx context.Context,
+	seqs []manifestcontracts.UnitOfWorkSequence,
+) error {
 	if err := ValidateSequenceGraph(seqs); err != nil {
 		return err
 	}
@@ -93,7 +108,7 @@ func (w *WorkflowExecutor) ExecuteAsDAG(
 			go func(s manifestcontracts.UnitOfWorkSequence) {
 				outcomes <- outcome{
 					name: s.Name,
-					err:  NewSequenceExecutor(w.env, w.registry, w.stepHandler).Execute(ctx, s),
+					err:  w.runSequence(ctx, s),
 				}
 			}(seq)
 		}
@@ -137,13 +152,62 @@ func (w *WorkflowExecutor) ExecuteAsDAG(
 			blocked = append(blocked, name)
 		}
 		slices.Sort(blocked)
-		runErrs = append(runErrs, fmt.Errorf(
-			"sequences not executed due to unresolved dependencies: %s",
-			strings.Join(blocked, ", "),
-		))
+
+		status := StatusBlocked
+		if ctx.Err() != nil {
+			status = StatusCancelled
+		}
+		for _, name := range blocked {
+			_ = w.emit(ctx, Event{
+				Scope:    ScopeSequence,
+				Sequence: name,
+				Stage:    StageFinish,
+				Status:   status,
+			})
+		}
+
+		if ctx.Err() == nil {
+			runErrs = append(runErrs, fmt.Errorf(
+				"sequences not executed due to unresolved dependencies: %s",
+				strings.Join(blocked, ", "),
+			))
+		}
 	}
 
 	return errors.Join(runErrs...)
+}
+
+func (w *WorkflowExecutor) runSequence(
+	ctx context.Context,
+	seq manifestcontracts.UnitOfWorkSequence,
+) error {
+	if err := w.emit(ctx, Event{Scope: ScopeSequence, Sequence: seq.Name, Stage: StageStart}); err != nil {
+		return err
+	}
+
+	err := NewSequenceExecutor(w.env, w.registry, w.eventHandler).Execute(ctx, seq)
+	return w.finish(
+		ctx,
+		Event{Scope: ScopeSequence, Sequence: seq.Name},
+		err,
+	)
+}
+
+func (w *WorkflowExecutor) finish(ctx context.Context, event Event, runErr error) error {
+	event.Stage = StageFinish
+	event.Status = statusFor(runErr)
+	event.Err = runErr
+	if handleErr := w.emit(ctx, event); runErr == nil {
+		runErr = handleErr
+	}
+	return runErr
+}
+
+func (w *WorkflowExecutor) emit(ctx context.Context, event Event) error {
+	if w.eventHandler == nil {
+		return nil
+	}
+	return w.eventHandler.Handle(ctx, event)
 }
 
 func ValidateSequenceGraph(seqs []manifestcontracts.UnitOfWorkSequence) error {
@@ -212,7 +276,7 @@ func (w *WorkflowExecutor) runBatch(ctx context.Context, batch manifestcontracts
 				return
 			}
 
-			exec := NewSequenceExecutor(w.env, w.registry, w.stepHandler)
+			exec := NewSequenceExecutor(w.env, w.registry, w.eventHandler)
 			if err := exec.Execute(ctx, s); err != nil {
 				errChan <- fmt.Errorf("sequence %s failed: %w", s.Name, err)
 			}

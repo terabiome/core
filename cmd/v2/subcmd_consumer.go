@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/terabiome/core/pkg/consumer"
+	"github.com/terabiome/core/pkg/consumer/lifecycle"
 	"github.com/terabiome/core/pkg/logging"
 	"github.com/terabiome/core/pkg/messaging/natsjetstream"
 )
@@ -15,14 +16,15 @@ import (
 const consumerSubcommand subcommand = "consumer"
 
 type consumerCLIInput struct {
-	NATSURL     string        `validate:"required"`
-	Stream      string        `validate:"required"`
-	Subjects    stringList    `validate:"required,min=1"`
-	Concurrency int           `validate:"min=0"`
-	AckWait     time.Duration `validate:"min=0"`
-	MaxDeliver  int           `validate:"min=0"`
-	Durable     string
-	Override    bool
+	NATSURL      string        `validate:"required"`
+	Stream       string        `validate:"required"`
+	Subjects     stringList    `validate:"required,min=1"`
+	Concurrency  int           `validate:"min=0"`
+	AckWait      time.Duration `validate:"min=0"`
+	MaxDeliver   int           `validate:"min=0"`
+	Durable      string
+	Override     bool
+	EventSubject string
 }
 
 type stringList []string
@@ -61,14 +63,26 @@ func processConsumerSubcommand(ctx context.Context, input consumerCLIInput) erro
 		})
 	}
 
+	logger := logging.GetGlobalSlogger()
+	dependencies := &consumer.Dependencies{}
+	if input.EventSubject != "" {
+		client := natsjetstream.New(natsjetstream.Config{URL: input.NATSURL}, logger)
+		eventHandler, err := lifecycle.NewEventHandler(client, input.EventSubject)
+		if err != nil {
+			return err
+		}
+		dependencies.Consumer = client
+		dependencies.EventHandler = eventHandler
+	}
+
 	worker, err := consumer.NewWorker(
 		consumer.Config{
 			Jetstream:     natsjetstream.Config{URL: input.NATSURL},
 			Subscriptions: subscriptions,
 			Concurrency:   input.Concurrency,
 		},
-		&(consumer.Dependencies{}),
-		logging.GetGlobalSlogger(),
+		dependencies,
+		logger,
 	)
 	if err != nil {
 		return err

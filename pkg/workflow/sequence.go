@@ -9,20 +9,20 @@ import (
 )
 
 type SequenceExecutor struct {
-	env         *operationspkg.OperationEnvironment
-	registry    Registry
-	stepHandler StepHandler
+	env          *operationspkg.OperationEnvironment
+	registry     Registry
+	eventHandler EventHandler
 }
 
 func NewSequenceExecutor(
 	env *operationspkg.OperationEnvironment,
 	registry Registry,
-	stepHandler StepHandler,
+	eventHandler EventHandler,
 ) *SequenceExecutor {
 	return &SequenceExecutor{
-		env:         env,
-		registry:    registry,
-		stepHandler: stepHandler,
+		env:          env,
+		registry:     registry,
+		eventHandler: eventHandler,
 	}
 }
 
@@ -47,13 +47,24 @@ func (e *SequenceExecutor) runStep(
 	index int,
 	step manifestcontracts.UnitOfWorkStep,
 ) error {
-	current := Step{Sequence: sequence, Name: step.Name, Index: index}
-	if err := e.handle(ctx, StepEvent{Step: current, Stage: StepStageStart}); err != nil {
+	event := Event{
+		Scope:    ScopeStep,
+		Sequence: sequence,
+		Step:     step.Name,
+		Index:    index,
+	}
+	start := event
+	start.Stage = StageStart
+	if err := e.handle(ctx, start); err != nil {
 		return err
 	}
 
 	err := e.executeStep(ctx, step)
-	if handleErr := e.handle(ctx, StepEvent{Step: current, Stage: StepStageFinish, Err: err}); err == nil {
+	finish := event
+	finish.Stage = StageFinish
+	finish.Status = statusFor(err)
+	finish.Err = err
+	if handleErr := e.handle(ctx, finish); err == nil {
 		err = handleErr
 	}
 	return err
@@ -76,9 +87,9 @@ func (e *SequenceExecutor) executeStep(ctx context.Context, step manifestcontrac
 	return op.Run(ctx, e.env)
 }
 
-func (e *SequenceExecutor) handle(ctx context.Context, event StepEvent) error {
-	if e.stepHandler == nil {
+func (e *SequenceExecutor) handle(ctx context.Context, event Event) error {
+	if e.eventHandler == nil {
 		return nil
 	}
-	return e.stepHandler.Handle(ctx, event)
+	return e.eventHandler.Handle(ctx, event)
 }
