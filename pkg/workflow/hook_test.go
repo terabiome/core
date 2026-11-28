@@ -4,17 +4,23 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"uuid"
 
 	manifestcontracts "github.com/terabiome/core/pkg/contracts/manifest"
 	operationspkg "github.com/terabiome/core/pkg/operations"
 )
 
 type recordingHandler struct {
-	events    []StepEvent
-	finishErr error
+	events     []StepEvent
+	finishErr  error
+	dispatches []Dispatch
+	found      []bool
 }
 
 func (h *recordingHandler) Handle(ctx context.Context, event StepEvent) error {
+	dispatch, ok := DispatchFromContext(ctx)
+	h.dispatches = append(h.dispatches, dispatch)
+	h.found = append(h.found, ok)
 	h.events = append(h.events, event)
 	if event.Stage == StepStageFinish {
 		return h.finishErr
@@ -57,6 +63,36 @@ func TestStepHandlerSeesStartAndFinish(t *testing.T) {
 	want := Step{Sequence: "smoke", Name: "stub.ok", Index: 0}
 	if handler.events[0].Step != want || handler.events[1].Step != want {
 		t.Fatalf("events = %+v", handler.events)
+	}
+}
+
+func TestStepHandlerSeesDispatchFromContext(t *testing.T) {
+	t.Parallel()
+
+	registry := operationspkg.NewRegistry()
+	if err := registry.Register("stub.ok", func() operationspkg.Operation { return stubOperation{} }); err != nil {
+		t.Fatal(err)
+	}
+
+	handler := &recordingHandler{}
+	dispatch := Dispatch{
+		UUID:    uuid.MustParse("018f0000-0000-7000-8000-000000000001"),
+		UOWUUID: uuid.MustParse("018f0000-0000-7000-8000-000000000002"),
+	}
+	seqs := []manifestcontracts.UnitOfWorkSequence{
+		{Name: "smoke", Steps: []manifestcontracts.UnitOfWorkStep{{Name: "stub.ok"}}},
+	}
+
+	if err := NewWorkflowExecutor(nil, registry, 1, handler).ExecuteAsDAG(WithDispatch(context.Background(), dispatch), seqs); err != nil {
+		t.Fatalf("ExecuteAsDAG() = %v", err)
+	}
+	if len(handler.events) != 2 {
+		t.Fatalf("events = %+v, want start and finish", handler.events)
+	}
+	for i := range handler.events {
+		if !handler.found[i] || handler.dispatches[i] != dispatch {
+			t.Fatalf("event %d dispatch = %+v (ok=%t), want %+v", i, handler.dispatches[i], handler.found[i], dispatch)
+		}
 	}
 }
 

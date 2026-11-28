@@ -36,7 +36,14 @@ func NewWorkflowExecutor(
 	}
 }
 
-func (w *WorkflowExecutor) ExecuteAsDAG(ctx context.Context, seqs []manifestcontracts.UnitOfWorkSequence) error {
+func (w *WorkflowExecutor) WithDispatch(ctx context.Context, dispatch Dispatch) context.Context {
+	return WithDispatch(ctx, dispatch)
+}
+
+func (w *WorkflowExecutor) ExecuteAsDAG(
+	ctx context.Context,
+	seqs []manifestcontracts.UnitOfWorkSequence,
+) error {
 	if len(seqs) == 0 {
 		return nil
 	}

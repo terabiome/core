@@ -37,16 +37,22 @@ func (h *messageHandler) Handle(
 		return messaging.Terminal(err)
 	}
 
+	identity, err := envelope.Identity()
+	if err != nil {
+		return messaging.Terminal(err)
+	}
+
 	if err := workflow.ValidateSequenceGraph(sequences); err != nil {
 		return messaging.Terminal(fmt.Errorf("invalid sequence graph: %w", err))
 	}
 
 	h.logger.InfoContext(ctx, "executing dispatch",
-		"dispatch_uuid", envelope.Metadata["dispatch_uuid"],
-		"uow_uuid", envelope.Metadata["uow_uuid"],
+		"dispatch_uuid", identity.UUID,
+		"uow_uuid", identity.UOWUUID,
 		"sequences", len(sequences),
 	)
 
+	ctx = h.executor.WithDispatch(ctx, workflow.Dispatch{UUID: identity.UUID, UOWUUID: identity.UOWUUID})
 	if err := h.executor.ExecuteAsDAG(ctx, sequences); err != nil {
 		return fmt.Errorf("failed to execute unit of work: %w", err)
 	}
